@@ -5,6 +5,7 @@ const router = Router();
 
 const VALID_DIFFICULTIES = ['easy', 'normal', 'hard'];
 const VALID_GAMES = ['jump', 'typing'];
+const MAX_SCORE = { jump: 999999, typing: 999999 };
 
 // 登录检查中间件
 function requireAuth(req, res, next) {
@@ -46,6 +47,9 @@ router.post('/', requireAuth, async (req, res) => {
   }
   if (typeof score !== 'number' || score < 0 || !Number.isFinite(score)) {
     return res.status(400).json({ error: '无效分数' });
+  }
+  if (score > (MAX_SCORE[game] || 99999)) {
+    return res.status(400).json({ error: '分数异常' });
   }
 
   const intScore = Math.floor(score);
