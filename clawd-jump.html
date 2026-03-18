@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clawd Jump!</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  #game-container {
+    position: relative;
+    width: 800px;
+    max-width: 95vw;
+  }
+
+  #title-area {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  #title-area h1 {
+    font-size: 36px;
+    color: #e8d5b7;
+    letter-spacing: 3px;
+    text-shadow: 0 0 20px rgba(232, 213, 183, 0.3);
+  }
+
+  #title-area .subtitle {
+    color: #7a6f5d;
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  #score-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: rgba(232, 213, 183, 0.08);
+    border-radius: 12px 12px 0 0;
+    border: 1px solid rgba(232, 213, 183, 0.1);
+    border-bottom: none;
+  }
+
+  .score-label {
+    color: #7a6f5d;
+    font-size: 13px;
+  }
+
+  .score-value {
+    color: #e8d5b7;
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #hi-score { color: #c9956b; }
+
+  canvas {
+    display: block;
+    background: #16213e;
+    border-radius: 0 0 12px 12px;
+    border: 1px solid rgba(232, 213, 183, 0.1);
+    border-top: none;
+    max-width: 100%;
+  }
+
+  #instructions {
+    text-align: center;
+    margin-top: 16px;
+    color: #5a5a7a;
+    font-size: 13px;
+  }
+
+  kbd {
+    background: rgba(232, 213, 183, 0.1);
+    border: 1px solid rgba(232, 213, 183, 0.2);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-family: inherit;
+    color: #e8d5b7;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="title-area">
+    <h1>CLAWD JUMP</h1>
+    <div class="subtitle">no internet? no problem.</div>
+  </div>
+  <div id="score-bar">
+    <div>
+      <span class="score-label">SCORE </span>
+      <span class="score-value" id="score-display">00000</span>
+    </div>
+    <div>
+      <span class="score-label">HI </span>
+      <span class="score-value" id="hi-score">00000</span>
+    </div>
+  </div>
+  <canvas id="game" width="800" height="250"></canvas>
+  <div id="instructions">
+    <kbd>SPACE</kbd> / <kbd>↑</kbd> / click to jump &nbsp;|&nbsp; <kbd>↓</kbd> to duck
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = 800, H = 250;
+
+// --- State ---
+let gameState = 'idle'; // idle | running | over
+let score = 0;
+let hiScore = parseInt(localStorage.getItem('clawd-hi') || '0');
+let speed = 6;
+let frameCount = 0;
+let groundY = H - 40;
+let obstacles = [];
+let clouds = [];
+let particles = [];
+let stars = [];
+let shakeTimer = 0;
+let flashAlpha = 0;
+let milestone = 0;
+
+// --- Clawd (the player) ---
+const clawd = {
+  x: 80, y: groundY, w: 56, h: 40,
+  vy: 0, jumping: false, ducking: false,
+  frame: 0, frameTimer: 0,
+  eyeBlink: 0, blinkTimer: 0,
+};
+
+const GRAVITY = 0.65;
+const JUMP_FORCE = -13;
+const DUCK_H = 24;
+
+// --- Init stars ---
+for (let i = 0; i < 50; i++) {
+  stars.push({
+    x: Math.random() * W,
+    y: Math.random() * (groundY - 30),
+    r: Math.random() * 1.5 + 0.3,
+    twinkle: Math.random() * Math.PI * 2,
+    speed: Math.random() * 0.02 + 0.01,
+  });
+}
+
+// --- Init clouds ---
+for (let i = 0; i < 3; i++) {
+  clouds.push({
+    x: Math.random() * W,
+    y: 30 + Math.random() * 60,
+    w: 60 + Math.random() * 40,
+    speed: 0.3 + Math.random() * 0.5,
+  });
+}
+
+// --- Clawd pixel art crab sprite ---
+// Pixel-perfect recreation from the reference PNG
+// Single flat color: #D77757 (terracotta)
+// 0 = transparent, 1 = crab body, E = eye hole (bg color)
+const P = 4; // pixel size
+const CRAB_COL = '#D77757';
+const CRAB_BG = '#16213e'; // canvas bg for eye holes
+
+// Standing sprite (16 wide x 12 tall)
+// Flat rectangular head (only 1 step), just like the PNG
+const spriteStand = [
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+];
+
+// Running frame 1 - legs spread outward
+const spriteRun1 = [
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,1,1,0,0,0,1,1,1,1,0,0,0,1,1,0],
+  [1,1,0,0,0,0,0,1,1,0,0,0,0,0,1,1],
+];
+
+// Running frame 2 - legs inward
+const spriteRun2 = [
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,0,1,1,0,0,1,1,0,0,1,1,0,0,0],
+  [0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0],
+];
+
+// Jump sprite - legs tucked
+const spriteJump = [
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+];
+
+// Duck sprite - squished flat
+const spriteDuck = [
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+];
+
+// Dead sprite - flipped upside down!
+const spriteDead = [
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+];
+
+function drawSprite(sprite, ox, oy) {
+  for (let row = 0; row < sprite.length; row++) {
+    for (let col = 0; col < sprite[row].length; col++) {
+      const val = sprite[row][col];
+      if (val === 0) continue;
+      if (val === 'E') {
+        // Eye hole - draw background color
+        ctx.fillStyle = CRAB_BG;
+      } else if (val === 'X') {
+        // X-eye marker for dead state
+        ctx.fillStyle = CRAB_BG;
+      } else {
+        ctx.fillStyle = CRAB_COL;
+      }
+      ctx.fillRect(ox + col * P, oy + row * P, P, P);
+    }
+  }
+}
+
+// --- Draw Clawd character ---
+function drawClawd() {
+  const c = clawd;
+
+  let sprite;
+  if (gameState === 'over') {
+    sprite = spriteDead;
+  } else if (c.ducking) {
+    sprite = spriteDuck;
+  } else if (c.jumping) {
+    sprite = spriteJump;
+  } else if (gameState === 'running') {
+    sprite = c.frame % 2 === 0 ? spriteRun1 : spriteRun2;
+  } else {
+    sprite = spriteStand;
+  }
+
+  const spriteW = sprite[0].length * P;
+  const spriteH = sprite.length * P;
+  const drawX = c.x - spriteW / 2;
+  const drawY = c.ducking
+    ? groundY - spriteH
+    : (c.jumping ? c.y - c.h : groundY - spriteH);
+
+  ctx.save();
+
+  // Shadow underneath
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+  ctx.beginPath();
+  ctx.ellipse(c.x, groundY + 2, spriteW * 0.3, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw the pixel sprite
+  drawSprite(sprite, drawX, drawY);
+
+  // Eye blink overlay
+  if (c.eyeBlink > 0 && gameState !== 'over') {
+    for (let row = 0; row < sprite.length; row++) {
+      for (let col = 0; col < sprite[row].length; col++) {
+        if (sprite[row][col] === 'E') {
+          ctx.fillStyle = CRAB_COL;
+          ctx.fillRect(drawX + col * P, drawY + row * P, P, P);
+        }
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+// --- Obstacles ---
+function spawnObstacle() {
+  const types = ['cactus_s', 'cactus_m', 'cactus_l', 'bird'];
+  // Birds only appear after score 200
+  const available = score > 200 ? types : types.slice(0, 3);
+  const type = available[Math.floor(Math.random() * available.length)];
+
+  let ob = { x: W + 20, type };
+
+  if (type === 'cactus_s') {
+    ob.w = 16; ob.h = 30; ob.y = groundY - 30;
+  } else if (type === 'cactus_m') {
+    ob.w = 20; ob.h = 40; ob.y = groundY - 40;
+  } else if (type === 'cactus_l') {
+    ob.w = 30; ob.h = 45; ob.y = groundY - 45;
+  } else if (type === 'bird') {
+    ob.w = 34; ob.h = 22;
+    // Bird at random height
+    ob.y = groundY - (Math.random() > 0.5 ? 65 : 35);
+    ob.wingFrame = 0;
+    ob.wingTimer = 0;
+  }
+
+  obstacles.push(ob);
+}
+
+function drawObstacle(ob) {
+  ctx.save();
+  if (ob.type.startsWith('cactus')) {
+    // Draw as "error blocks" / obstacles
+    const gradient = ctx.createLinearGradient(ob.x, ob.y, ob.x, ob.y + ob.h);
+    gradient.addColorStop(0, '#e05252');
+    gradient.addColorStop(1, '#b83a3a');
+    ctx.fillStyle = gradient;
+    roundRect(ob.x, ob.y, ob.w, ob.h, 4);
+    ctx.fill();
+
+    // Error symbol
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${ob.h > 35 ? 16 : 12}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('!', ob.x + ob.w/2, ob.y + ob.h/2);
+
+    // Glow
+    ctx.shadowColor = '#e05252';
+    ctx.shadowBlur = 10;
+    ctx.strokeStyle = 'rgba(224, 82, 82, 0.3)';
+    ctx.lineWidth = 1;
+    roundRect(ob.x - 1, ob.y - 1, ob.w + 2, ob.h + 2, 5);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  } else if (ob.type === 'bird') {
+    // Flying bug/error
+    ob.wingTimer++;
+    if (ob.wingTimer > 8) { ob.wingTimer = 0; ob.wingFrame = 1 - ob.wingFrame; }
+
+    ctx.fillStyle = '#e8a030';
+    // Body
+    roundRect(ob.x, ob.y + 6, ob.w, ob.h - 12, 5);
+    ctx.fill();
+
+    // Wings
+    ctx.fillStyle = '#f0c040';
+    if (ob.wingFrame === 0) {
+      // Wings up
+      ctx.beginPath();
+      ctx.moveTo(ob.x + 6, ob.y + 8);
+      ctx.lineTo(ob.x + 17, ob.y - 4);
+      ctx.lineTo(ob.x + 28, ob.y + 8);
+      ctx.fill();
+    } else {
+      // Wings down
+      ctx.beginPath();
+      ctx.moveTo(ob.x + 6, ob.y + ob.h - 8);
+      ctx.lineTo(ob.x + 17, ob.y + ob.h + 4);
+      ctx.lineTo(ob.x + 28, ob.y + ob.h - 8);
+      ctx.fill();
+    }
+
+    // Eye
+    ctx.fillStyle = '#2a2a3e';
+    ctx.beginPath();
+    ctx.arc(ob.x + ob.w - 8, ob.y + ob.h/2, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // "BUG" label
+    ctx.fillStyle = '#2a2a3e';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('BUG', ob.x + ob.w/2, ob.y + ob.h/2 + 3);
+  }
+  ctx.restore();
+}
+
+// --- Ground ---
+function drawGround() {
+  // Ground line
+  ctx.strokeStyle = 'rgba(232, 213, 183, 0.3)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  ctx.lineTo(W, groundY);
+  ctx.stroke();
+
+  // Ground dots pattern
+  ctx.fillStyle = 'rgba(232, 213, 183, 0.1)';
+  const offset = (frameCount * speed * 0.5) % 20;
+  for (let x = -offset; x < W; x += 20) {
+    for (let row = 0; row < 3; row++) {
+      ctx.fillRect(x, groundY + 8 + row * 10, 2, 2);
+    }
+  }
+}
+
+// --- Clouds ---
+function drawClouds() {
+  clouds.forEach(c => {
+    ctx.fillStyle = 'rgba(232, 213, 183, 0.04)';
+    ctx.beginPath();
+    ctx.ellipse(c.x, c.y, c.w/2, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(c.x - c.w * 0.2, c.y + 4, c.w * 0.3, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(c.x + c.w * 0.25, c.y + 2, c.w * 0.25, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (gameState === 'running') {
+      c.x -= c.speed;
+      if (c.x + c.w < 0) {
+        c.x = W + c.w;
+        c.y = 30 + Math.random() * 60;
+      }
+    }
+  });
+}
+
+// --- Stars ---
+function drawStars() {
+  stars.forEach(s => {
+    s.twinkle += s.speed;
+    const alpha = 0.3 + Math.sin(s.twinkle) * 0.25;
+    ctx.fillStyle = `rgba(232, 213, 183, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// --- Particles ---
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 8,
+      vy: (Math.random() - 1) * 6,
+      r: Math.random() * 3 + 1,
+      color,
+      life: 1,
+      decay: Math.random() * 0.03 + 0.02,
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.15;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+// --- Collision (AABB - sprite rect vs obstacle rect) ---
+function checkCollision() {
+  const c = clawd;
+  const sprW = 16 * P;  // sprite pixel width
+  const sprH = (c.ducking ? 7 : 12) * P; // sprite pixel height
+  // Player hitbox (body core, shrunk for fairness - exclude arms & leg tips)
+  const px1 = c.x - sprW/2 + P * 3;
+  const py1 = (c.ducking ? groundY - sprH : (c.jumping ? c.y - c.h : groundY - sprH)) + P;
+  const px2 = c.x + sprW/2 - P * 3;
+  const py2 = py1 + sprH - P * 4;
+
+  for (const ob of obstacles) {
+    const ox1 = ob.x + 3;
+    const oy1 = ob.y + 3;
+    const ox2 = ob.x + ob.w - 3;
+    const oy2 = ob.y + ob.h - 3;
+
+    if (px1 < ox2 && px2 > ox1 && py1 < oy2 && py2 > oy1) {
+      return ob;
+    }
+  }
+  return null;
+}
+
+// --- UI Helpers ---
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function formatScore(n) {
+  return String(Math.floor(n)).padStart(5, '0');
+}
+
+function updateScoreDisplay() {
+  document.getElementById('score-display').textContent = formatScore(score);
+  document.getElementById('hi-score').textContent = formatScore(hiScore);
+}
+
+// --- Game Over screen ---
+function drawGameOver() {
+  ctx.fillStyle = 'rgba(22, 33, 62, 0.6)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#e8d5b7';
+  ctx.font = 'bold 32px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('GAME OVER', W/2, H/2 - 20);
+
+  ctx.fillStyle = '#7a6f5d';
+  ctx.font = '16px system-ui, sans-serif';
+  ctx.fillText('Press SPACE to restart', W/2, H/2 + 20);
+}
+
+// --- Idle screen ---
+function drawIdle() {
+  ctx.fillStyle = 'rgba(232, 213, 183, 0.6)';
+  ctx.font = 'bold 20px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Press SPACE to start', W/2, H/2 - 10);
+
+  ctx.fillStyle = 'rgba(232, 213, 183, 0.3)';
+  ctx.font = '14px system-ui, sans-serif';
+  ctx.fillText('Help Clawd the crab dodge the errors and bugs!', W/2, H/2 + 20);
+}
+
+// --- Main Loop ---
+let lastSpawn = 0;
+let spawnInterval = 90;
+
+function update() {
+  if (gameState !== 'running') return;
+
+  frameCount++;
+
+  // Score
+  score += speed * 0.02;
+  speed = 6 + Math.floor(score / 100) * 0.5;
+  speed = Math.min(speed, 16);
+
+  // Milestone flash every 100 points
+  const currentMilestone = Math.floor(score / 100);
+  if (currentMilestone > milestone) {
+    milestone = currentMilestone;
+    flashAlpha = 0.4;
+    spawnParticles(W/2, H/2, '#f0c87a', 15);
+  }
+  if (flashAlpha > 0) flashAlpha -= 0.015;
+
+  // Clawd physics
+  if (clawd.jumping) {
+    clawd.vy += GRAVITY;
+    clawd.y += clawd.vy;
+    if (clawd.y >= groundY) {
+      clawd.y = groundY;
+      clawd.vy = 0;
+      clawd.jumping = false;
+      // Land particles
+      spawnParticles(clawd.x, groundY, '#d97757', 4);
+    }
+  }
+
+  // Running animation
+  clawd.frameTimer++;
+  if (clawd.frameTimer > 6) {
+    clawd.frameTimer = 0;
+    clawd.frame++;
+  }
+
+  // Blinking
+  clawd.blinkTimer++;
+  if (clawd.blinkTimer > 120 + Math.random() * 120) {
+    clawd.eyeBlink = 6;
+    clawd.blinkTimer = 0;
+  }
+  if (clawd.eyeBlink > 0) clawd.eyeBlink--;
+
+  // Spawn obstacles
+  lastSpawn++;
+  if (lastSpawn >= spawnInterval) {
+    spawnObstacle();
+    lastSpawn = 0;
+    spawnInterval = 50 + Math.random() * 60 - Math.min(score / 20, 25);
+    spawnInterval = Math.max(spawnInterval, 30);
+  }
+
+  // Move obstacles
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    obstacles[i].x -= speed;
+    if (obstacles[i].x + obstacles[i].w < -20) {
+      obstacles.splice(i, 1);
+    }
+  }
+
+  // Collision
+  const hit = checkCollision();
+  if (hit) {
+    gameState = 'over';
+    shakeTimer = 15;
+    spawnParticles(hit.x + hit.w/2, hit.y + hit.h/2, '#e05252', 20);
+    spawnParticles(clawd.x, clawd.y - clawd.h/2, '#d97757', 10);
+    if (score > hiScore) {
+      hiScore = Math.floor(score);
+      localStorage.setItem('clawd-hi', hiScore);
+    }
+  }
+
+  updateParticles();
+  updateScoreDisplay();
+}
+
+function draw() {
+  ctx.save();
+
+  // Screen shake
+  if (shakeTimer > 0) {
+    shakeTimer--;
+    ctx.translate(
+      (Math.random() - 0.5) * shakeTimer * 1.2,
+      (Math.random() - 0.5) * shakeTimer * 1.2
+    );
+  }
+
+  // Clear
+  ctx.fillStyle = '#16213e';
+  ctx.fillRect(0, 0, W, H);
+
+  // Milestone flash
+  if (flashAlpha > 0) {
+    ctx.fillStyle = `rgba(240, 200, 122, ${flashAlpha})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  drawStars();
+  drawClouds();
+  drawGround();
+
+  // Obstacles
+  obstacles.forEach(drawObstacle);
+
+  // Clawd
+  drawClawd();
+
+  // Particles
+  drawParticles();
+
+  // Overlays
+  if (gameState === 'idle') drawIdle();
+  if (gameState === 'over') drawGameOver();
+
+  ctx.restore();
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+// --- Input ---
+function jump() {
+  if (gameState === 'idle') {
+    gameState = 'running';
+    score = 0;
+    speed = 6;
+    obstacles = [];
+    lastSpawn = 0;
+    milestone = 0;
+    frameCount = 0;
+    clawd.y = groundY;
+    clawd.vy = 0;
+    clawd.jumping = false;
+    clawd.ducking = false;
+    updateScoreDisplay();
+  }
+  if (gameState === 'over') {
+    gameState = 'running';
+    score = 0;
+    speed = 6;
+    obstacles = [];
+    lastSpawn = 0;
+    milestone = 0;
+    frameCount = 0;
+    clawd.y = groundY;
+    clawd.vy = 0;
+    clawd.jumping = false;
+    clawd.ducking = false;
+    particles = [];
+    updateScoreDisplay();
+    return;
+  }
+  if (gameState === 'running' && !clawd.jumping) {
+    clawd.vy = JUMP_FORCE;
+    clawd.jumping = true;
+    clawd.ducking = false;
+    spawnParticles(clawd.x, groundY, '#d97757', 3);
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    e.preventDefault();
+    jump();
+  }
+  if (e.code === 'ArrowDown' && gameState === 'running') {
+    e.preventDefault();
+    if (!clawd.jumping) {
+      clawd.ducking = true;
+    } else {
+      // Fast fall
+      clawd.vy += 3;
+    }
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'ArrowDown') {
+    clawd.ducking = false;
+  }
+});
+
+canvas.addEventListener('click', jump);
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); });
+
+// --- Responsive ---
+function resize() {
+  const maxW = Math.min(window.innerWidth * 0.95, 800);
+  canvas.style.width = maxW + 'px';
+  canvas.style.height = (maxW * H / W) + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- Start ---
+updateScoreDisplay();
+gameLoop();
+</script>
+</body>
+</html>
