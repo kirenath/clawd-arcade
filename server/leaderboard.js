@@ -5,7 +5,15 @@ const router = Router();
 
 const VALID_DIFFICULTIES = ['easy', 'normal', 'hard'];
 
-router.get('/', async (req, res) => {
+// 登录检查中间件
+function requireAuth(req, res, next) {
+  if (!req.session.user) {
+    return res.status(401).json({ error: '未登录' });
+  }
+  next();
+}
+
+router.get('/', requireAuth, async (req, res) => {
   const difficulty = req.query.difficulty || 'normal';
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
 
