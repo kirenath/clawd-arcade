@@ -92,16 +92,19 @@
     window.clawdAuth = {
       user,
       scores,
-      async syncScore(difficulty, score) {
+      async syncScore(game, difficulty, score) {
         try {
           const res = await fetch('/api/scores', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ difficulty, score })
+            body: JSON.stringify({ game, difficulty, score })
           });
           if (res.ok) {
             const result = await res.json();
-            if (result.updated) this.scores[difficulty] = result.score;
+            if (result.updated) {
+              if (!this.scores[game]) this.scores[game] = {};
+              this.scores[game][difficulty] = result.score;
+            }
           }
         } catch {}
       },
@@ -137,9 +140,13 @@
 
     // First-login sync: upload localStorage scores to server
     for (const diff of ['easy', 'normal', 'hard']) {
-      const local = parseInt(localStorage.getItem('clawd-hi-' + diff) || '0');
-      if (local > (scores[diff] || 0)) {
-        window.clawdAuth.syncScore(diff, local);
+      const jumpLocal = parseInt(localStorage.getItem('clawd-hi-' + diff) || '0');
+      if (jumpLocal > ((scores.jump && scores.jump[diff]) || 0)) {
+        window.clawdAuth.syncScore('jump', diff, jumpLocal);
+      }
+      const typingLocal = parseInt(localStorage.getItem('clawd-typing-hi-' + diff) || '0');
+      if (typingLocal > ((scores.typing && scores.typing[diff]) || 0)) {
+        window.clawdAuth.syncScore('typing', diff, typingLocal);
       }
     }
   } else {

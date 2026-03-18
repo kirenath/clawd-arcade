@@ -915,7 +915,7 @@ function update() {
       localStorage.setItem('clawd-hi-' + difficulty, hiScore);
     }
     if (window.clawdAuth && window.clawdAuth.user) {
-      window.clawdAuth.syncScore(difficulty, Math.floor(score));
+      window.clawdAuth.syncScore('jump', difficulty, Math.floor(score));
     }
   }
 
@@ -977,7 +977,7 @@ function startGame() {
   JUMP_FORCE = diff.jumpForce;
   hiScore = parseInt(localStorage.getItem('clawd-hi-' + difficulty) || '0');
   if (window.clawdAuth && window.clawdAuth.scores) {
-    const serverHi = window.clawdAuth.scores[difficulty] || 0;
+    const serverHi = (window.clawdAuth.scores.jump && window.clawdAuth.scores.jump[difficulty]) || 0;
     if (serverHi > hiScore) { hiScore = serverHi; localStorage.setItem('clawd-hi-' + difficulty, hiScore); }
   }
   gameState = 'running';
@@ -1068,7 +1068,7 @@ hiScore = parseInt(localStorage.getItem('clawd-hi-normal') || '0');
 updateScoreDisplay();
 gameLoop();
 </script>
-<div id="leaderboard-area"></div>
+<div id="leaderboard-area" data-game="jump"></div>
 
 <script src="auth.js"></script>
 <script src="leaderboard.js"></script>

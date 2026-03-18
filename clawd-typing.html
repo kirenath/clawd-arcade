@@ -235,10 +235,71 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = 800, H = 400;
 
-// --- Word pools by length ---
-const WORDS_SHORT = ['let','var','for','if','else','try','new','null','true','this','int','nil','def','end','map','set','get','put','pop','run','log','err','fn','do','go'];
-const WORDS_MED = ['const','return','import','export','switch','delete','typeof','async','await','yield','class','super','break','catch','throw','while','print','array','stack','queue','float','input','parse','slice','split','match','apply','bind','push','join'];
-const WORDS_LONG = ['function','continue','debugger','instanceof','undefined','arguments','prototype','interface','template','abstract','readonly','override','iterator','generator','stringify','callback','dispatch','mutation','selector','computed','redirect','middleware','component','resolver'];
+// --- Word pools by length (all tech stacks + AI + dark humor) ---
+const WORDS_SHORT = [
+  // JS / General
+  'let','var','for','if','else','try','new','null','true','this','int','nil','def','end','map','set','get','put','pop','run','log','err','fn','do','go',
+  // Python / Rust / Go
+  'mut','ref','pub','mod','use','pip','str','len','sum','abs','hex','cls','key','val','buf','vec','ptr','asm','xor','io',
+  // DevOps / Infra
+  'pod','git','ssh','tar','apt','yml','npm','cli','aws','gcp',
+  // AI / ML
+  'gpu','tpu','gan','llm','rag','nlp','rnn','cnn','agi','lora','sora',
+  // Networking
+  'tcp','udp','url','dom','dns','cdn','api','ack','syn',
+  // Editor wars & culture
+  'vim','emacs','tabs','sudo','yolo','nano',
+  // Dark humor
+  'bug','fix','cry','die','oof','rip','wtf','brb','lag','nan',
+  // 🦀 Clawd easter eggs
+  'clawd','meow','crab','pinch',
+];
+const WORDS_MED = [
+  // JS
+  'const','return','import','export','switch','delete','typeof','async','await','yield','class','super','break','catch','throw','while','print','array','stack','queue','float','input','parse','slice','split','match','apply','push','join',
+  // Python
+  'range','tuple','lambda','flask','numpy','pandas','pytest',
+  // Rust
+  'cargo','trait','spawn','mutex','clone','crate','unsafe',
+  // React / Frontend
+  'props','state','hooks','redux','fiber','route','vnode',
+  // DevOps
+  'nginx','proxy','build','deploy','linux','shell','redis','mongo','kafka',
+  // AI / ML
+  'token','epoch','model','batch','train','infer','embed','agent','llama','sigma','torch','layer','dense','logit','chatgpt','openai','gemini','claude','neuron','tensor','prompt','copilot',
+  // Database
+  'query','index','table','alter','grant',
+  // Editor wars & culture
+  'spaces','regex','semicol',
+  // Dark humor
+  'panic','abort','fatal','crash','debug','chaos','legacy','blame','mercy','sorry','oops','freeze','leaked','revert','oncall','shipit','hacky',
+  // 🦀 Clawd
+  'coral','crabby',
+];
+const WORDS_LONG = [
+  // JS / TS
+  'function','continue','debugger','instanceof','undefined','arguments','prototype','interface','template','abstract','readonly','override','iterator','generator','stringify','callback','dispatch','mutation','selector','computed','redirect','middleware','component','resolver',
+  // Python
+  'decorator','exception','metaclass','coroutine',
+  // Rust
+  'ownership','lifetime','borrowing',
+  // React / Frontend
+  'hydration','suspense','virtualdom',
+  // AI / ML 🤖
+  'transformer','attention','embedding','diffusion','finetuning','inference','backprop','overfitting','gradient','perceptron','multimodal','tokenizer','softmax','benchmark','parameter','dropout','encoder','decoder','classifier','regression','reinforcement','hallucinate','alignment','crossentropy','promptinjection','jailbreak','catastrophicforgetting','temperaturezero',
+  // DevOps
+  'container','kubernetes','pipeline','registry','dockerfile','terraform','serverless',
+  // Database
+  'migration','transaction','aggregate','normalize',
+  // Programmer culture
+  'localhost','semicolon','hackathon','rubberduck','copypaste','coffeedriven',
+  // Dark humor 💀
+  'outofmemory','segfault','stackoverflow','nullpointer','deprecated','spaghetti','refactoring','deadlock','racecondit','heapoverflow','coredump','brainfuck','techdebt','burnout','crunchtime','hotfix','monkeypatch','godclass','memoryleak','infiniteloop','mergconflict','rollback',
+  // 🦀 Clawd easter eggs
+  'crabrave',
+  // 🏆 Ultimate boss words
+  'itworksonmymachine','itworkslocally','worksonfriday','itsjustafeature',
+];
 
 // --- Difficulty settings ---
 const DIFFICULTIES = {
@@ -899,7 +960,7 @@ function gameOver() {
     localStorage.setItem('clawd-typing-hi-' + difficulty, hiScore);
   }
   if (window.clawdAuth && window.clawdAuth.user) {
-    window.clawdAuth.syncScore(difficulty, Math.floor(score));
+    window.clawdAuth.syncScore('typing', difficulty, Math.floor(score));
   }
   updateScoreDisplay();
 }
@@ -960,7 +1021,7 @@ function gameLoop() {
 function startGame() {
   hiScore = parseInt(localStorage.getItem('clawd-typing-hi-' + difficulty) || '0');
   if (window.clawdAuth && window.clawdAuth.scores) {
-    const serverHi = window.clawdAuth.scores[difficulty] || 0;
+    const serverHi = (window.clawdAuth.scores.typing && window.clawdAuth.scores.typing[difficulty]) || 0;
     if (serverHi > hiScore) { hiScore = serverHi; localStorage.setItem('clawd-typing-hi-' + difficulty, hiScore); }
   }
   gameState = 'running';
@@ -1090,7 +1151,7 @@ renderLives();
 updateScoreDisplay();
 gameLoop();
 </script>
-<div id="leaderboard-area"></div>
+<div id="leaderboard-area" data-game="typing"></div>
 
 <script src="auth.js"></script>
 <script src="leaderboard.js"></script>

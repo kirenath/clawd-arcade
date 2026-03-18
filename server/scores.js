@@ -4,6 +4,7 @@ const supabase = require('./supabase');
 const router = Router();
 
 const VALID_DIFFICULTIES = ['easy', 'normal', 'hard'];
+const VALID_GAMES = ['jump', 'typing'];
 
 // 登录检查中间件
 function requireAuth(req, res, next) {
@@ -13,11 +14,11 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// 获取当前用户所有分数
+// 获取当前用户所有分数（按游戏分组）
 router.get('/', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('scores')
-    .select('difficulty, score')
+    .select('game, difficulty, score')
     .eq('user_id', req.session.user.id);
 
   if (error) {
@@ -27,15 +28,19 @@ router.get('/', requireAuth, async (req, res) => {
 
   const scores = {};
   for (const row of data) {
-    scores[row.difficulty] = row.score;
+    if (!scores[row.game]) scores[row.game] = {};
+    scores[row.game][row.difficulty] = row.score;
   }
   res.json(scores);
 });
 
 // 提交分数
 router.post('/', requireAuth, async (req, res) => {
-  const { difficulty, score } = req.body;
+  const { game, difficulty, score } = req.body;
 
+  if (!VALID_GAMES.includes(game)) {
+    return res.status(400).json({ error: '无效游戏' });
+  }
   if (!VALID_DIFFICULTIES.includes(difficulty)) {
     return res.status(400).json({ error: '无效难度' });
   }
@@ -51,6 +56,7 @@ router.post('/', requireAuth, async (req, res) => {
     .from('scores')
     .select('score')
     .eq('user_id', userId)
+    .eq('game', game)
     .eq('difficulty', difficulty)
     .single();
 
@@ -61,10 +67,11 @@ router.post('/', requireAuth, async (req, res) => {
   // Upsert 新高分
   const { error } = await supabase.from('scores').upsert({
     user_id: userId,
+    game,
     difficulty,
     score: intScore,
     updated_at: new Date().toISOString()
-  }, { onConflict: 'user_id,difficulty' });
+  }, { onConflict: 'user_id,game,difficulty' });
 
   if (error) {
     console.error('Upsert score error:', error);

@@ -82,11 +82,12 @@
   `;
   document.head.appendChild(style);
 
+  const gameName = area.dataset.game || 'jump';
   let currentDiff = 'normal';
 
   async function loadLeaderboard(difficulty) {
     try {
-      const res = await fetch(`/api/leaderboard?difficulty=${difficulty}&limit=20`, {
+      const res = await fetch(`/api/leaderboard?game=${gameName}&difficulty=${difficulty}&limit=20`, {
         signal: AbortSignal.timeout(3000)
       });
       if (!res.ok) return null;
@@ -105,12 +106,15 @@
       <thead><tr><th class="lb-rank">${t('lb.rank')}</th><th>${t('lb.player')}</th><th class="lb-score">${t('lb.score')}</th></tr></thead><tbody>`;
     entries.forEach((e, i) => {
       const rankClass = i < 3 ? ` lb-rank-${i + 1}` : '';
+      const playerCell = e.name
+        ? `<div class="lb-player">
+            <img src="${e.avatar_url}" alt="${e.name}">
+            <span>${e.name}</span>
+          </div>`
+        : `<div class="lb-player"><span style="color:#7a6f5d">???</span></div>`;
       html += `<tr>
         <td class="lb-rank${rankClass}">${i + 1}</td>
-        <td><div class="lb-player">
-          <img src="${e.avatar_url}" alt="${e.name}">
-          <span>${e.name}</span>
-        </div></td>
+        <td>${playerCell}</td>
         <td class="lb-score">${e.score}</td>
       </tr>`;
     });
