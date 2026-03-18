@@ -27,6 +27,14 @@
       'restart': '按空格键重新开始',
       'start': '按空格键开始',
       'start.hint': '帮助螃蟹 Clawd 躲避错误和 Bug！',
+      // clawd-typing
+      'typing.subtitle': '程序员手速测试！',
+      'typing.instructions': '键入掉落的关键字来消灭它们 | {esc} 清空输入 | {backspace} 退格',
+      'typing.start': '按任意键开始',
+      'typing.start.hint': '输入代码关键字，击落入侵的 Bug！',
+      'typing.placeholder': '开始输入...',
+      'typing.streak': '连击',
+      'game.typing.desc': '代码关键字从天而降，拼手速击落它们！程序员的打字练习场。',
       // auth
       'login': '使用 Linux.do 登录',
       'logout': '登出',
@@ -63,6 +71,14 @@
       'restart': 'Press SPACE to restart',
       'start': 'Press SPACE to start',
       'start.hint': 'Help Clawd the crab dodge the errors and bugs!',
+      // clawd-typing
+      'typing.subtitle': 'test your dev typing speed!',
+      'typing.instructions': 'type the falling keywords to destroy them | {esc} clear input | {backspace} backspace',
+      'typing.start': 'Press any key to start',
+      'typing.start.hint': 'Type code keywords to shoot down the invading bugs!',
+      'typing.placeholder': 'start typing...',
+      'typing.streak': 'streak',
+      'game.typing.desc': 'Code keywords rain from the sky — type fast to destroy them! A typing drill for devs.',
       // auth
       'login': 'Login with Linux.do',
       'logout': 'Logout',

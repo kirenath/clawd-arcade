@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clawd Typing!</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    user-select: none;
+    padding-top: 40px;
+  }
+
+  .back-btn {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    background: rgba(232, 213, 183, 0.08);
+    border: 1px solid rgba(232, 213, 183, 0.15);
+    border-radius: 8px;
+    padding: 6px 14px;
+    color: #7a6f5d;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .back-btn:hover {
+    background: rgba(232, 213, 183, 0.15);
+    color: #e8d5b7;
+    border-color: rgba(232, 213, 183, 0.3);
+  }
+
+  #game-container {
+    position: relative;
+    width: 800px;
+    max-width: 95vw;
+  }
+
+  #title-area {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  #title-area h1 {
+    font-size: 36px;
+    color: #e8d5b7;
+    letter-spacing: 3px;
+    text-shadow: 0 0 20px rgba(232, 213, 183, 0.3);
+  }
+
+  #title-area .subtitle {
+    color: #7a6f5d;
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  #score-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: rgba(232, 213, 183, 0.08);
+    border-radius: 12px 12px 0 0;
+    border: 1px solid rgba(232, 213, 183, 0.1);
+    border-bottom: none;
+  }
+
+  .score-label {
+    color: #7a6f5d;
+    font-size: 13px;
+  }
+
+  .score-value {
+    color: #e8d5b7;
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #hi-score { color: #c9956b; }
+
+  .lives-display {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .lives-display .heart {
+    font-size: 16px;
+    transition: opacity 0.3s;
+  }
+
+  .lives-display .heart.lost {
+    opacity: 0.2;
+  }
+
+  canvas {
+    display: block;
+    background: #16213e;
+    border-radius: 0 0 12px 12px;
+    border: 1px solid rgba(232, 213, 183, 0.1);
+    border-top: none;
+    max-width: 100%;
+  }
+
+  #difficulty-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(232, 213, 183, 0.05);
+    border-left: 1px solid rgba(232, 213, 183, 0.1);
+    border-right: 1px solid rgba(232, 213, 183, 0.1);
+  }
+
+  #difficulty-bar .diff-label {
+    color: #7a6f5d;
+    font-size: 13px;
+    margin-right: 4px;
+  }
+
+  .diff-btn {
+    background: rgba(232, 213, 183, 0.08);
+    border: 1px solid rgba(232, 213, 183, 0.15);
+    border-radius: 6px;
+    padding: 4px 14px;
+    color: #7a6f5d;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .diff-btn:hover {
+    background: rgba(232, 213, 183, 0.15);
+    color: #e8d5b7;
+  }
+
+  .diff-btn.active {
+    background: rgba(215, 119, 87, 0.25);
+    border-color: #D77757;
+    color: #e8d5b7;
+    font-weight: 600;
+  }
+
+  .diff-btn.active.easy { background: rgba(80, 200, 120, 0.2); border-color: #50c878; }
+  .diff-btn.active.hard { background: rgba(224, 82, 82, 0.2); border-color: #e05252; }
+
+  #instructions {
+    text-align: center;
+    margin-top: 16px;
+    margin-bottom: 20px;
+    color: #5a5a7a;
+    font-size: 13px;
+  }
+
+  kbd {
+    background: rgba(232, 213, 183, 0.1);
+    border: 1px solid rgba(232, 213, 183, 0.2);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-family: inherit;
+    color: #e8d5b7;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<a class="back-btn" href="index.html" id="back-btn"></a>
+
+<div id="game-container">
+  <div id="title-area">
+    <h1>CLAWD TYPING</h1>
+    <div class="subtitle" id="typing-subtitle"></div>
+    <div id="auth-area"></div>
+  </div>
+  <div id="score-bar">
+    <div>
+      <span class="score-label" id="score-label"></span>
+      <span class="score-value" id="score-display">00000</span>
+    </div>
+    <div class="lives-display" id="lives-display"></div>
+    <div>
+      <span class="score-label" id="hi-label"></span>
+      <span class="score-value" id="hi-score">00000</span>
+    </div>
+  </div>
+  <div id="difficulty-bar">
+    <span class="diff-label" id="diff-label"></span>
+    <button class="diff-btn easy" data-diff="easy" onclick="setDifficulty('easy')"></button>
+    <button class="diff-btn active" data-diff="normal" onclick="setDifficulty('normal')"></button>
+    <button class="diff-btn hard" data-diff="hard" onclick="setDifficulty('hard')"></button>
+  </div>
+  <canvas id="game" width="800" height="400"></canvas>
+  <div id="instructions"></div>
+</div>
+
+<script src="i18n.js"></script>
+<script>
+function applyTypingI18n() {
+  const t = window.i18n.t;
+  document.getElementById('back-btn').textContent = t('back.arcade');
+  document.getElementById('typing-subtitle').textContent = t('typing.subtitle');
+  document.getElementById('score-label').textContent = t('score') + ' ';
+  document.getElementById('hi-label').textContent = t('hi') + ' ';
+  document.getElementById('diff-label').textContent = t('difficulty');
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.textContent = t(btn.dataset.diff);
+  });
+  document.getElementById('instructions').innerHTML = t('typing.instructions')
+    .replace(/\{esc\}/g, '<kbd>ESC</kbd>')
+    .replace(/\{backspace\}/g, '<kbd>⌫</kbd>');
+}
+applyTypingI18n();
+window.addEventListener('langchange', applyTypingI18n);
+</script>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = 800, H = 400;
+
+// --- Word pools by length ---
+const WORDS_SHORT = ['let','var','for','if','else','try','new','null','true','this','int','nil','def','end','map','set','get','put','pop','run','log','err','fn','do','go'];
+const WORDS_MED = ['const','return','import','export','switch','delete','typeof','async','await','yield','class','super','break','catch','throw','while','print','array','stack','queue','float','input','parse','slice','split','match','apply','bind','push','join'];
+const WORDS_LONG = ['function','continue','debugger','instanceof','undefined','arguments','prototype','interface','template','abstract','readonly','override','iterator','generator','stringify','callback','dispatch','mutation','selector','computed','redirect','middleware','component','resolver'];
+
+// --- Difficulty settings ---
+const DIFFICULTIES = {
+  easy: {
+    baseSpeed: 0.3,
+    maxSpeed: 0.6,
+    spawnInterval: 180, // frames (~3s at 60fps)
+    maxOnScreen: 4,
+    lives: 5,
+    wordPool: () => {
+      // 70% short, 30% medium
+      return Math.random() < 0.7 ? WORDS_SHORT : WORDS_MED;
+    },
+    speedUpRate: 0.0001,
+    spawnSpeedUp: 0.15,
+  },
+  normal: {
+    baseSpeed: 0.5,
+    maxSpeed: 1.0,
+    spawnInterval: 120, // ~2s
+    maxOnScreen: 6,
+    lives: 3,
+    wordPool: () => {
+      const r = Math.random();
+      if (r < 0.3) return WORDS_SHORT;
+      if (r < 0.7) return WORDS_MED;
+      return WORDS_LONG;
+    },
+    speedUpRate: 0.00015,
+    spawnSpeedUp: 0.2,
+  },
+  hard: {
+    baseSpeed: 0.8,
+    maxSpeed: 1.5,
+    spawnInterval: 72, // ~1.2s
+    maxOnScreen: 8,
+    lives: 2,
+    wordPool: () => {
+      const r = Math.random();
+      if (r < 0.15) return WORDS_SHORT;
+      if (r < 0.5) return WORDS_MED;
+      return WORDS_LONG;
+    },
+    speedUpRate: 0.0002,
+    spawnSpeedUp: 0.3,
+  },
+};
+
+let difficulty = 'normal';
+let diff = DIFFICULTIES[difficulty];
+
+function setDifficulty(d) {
+  if (gameState === 'running') return;
+  difficulty = d;
+  diff = DIFFICULTIES[d];
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.diff === d);
+  });
+  hiScore = parseInt(localStorage.getItem('clawd-typing-hi-' + difficulty) || '0');
+  updateScoreDisplay();
+  renderLives();
+}
+
+// --- Game State ---
+let gameState = 'idle'; // idle | running | over
+let score = 0;
+let hiScore = parseInt(localStorage.getItem('clawd-typing-hi-normal') || '0');
+let lives = 3;
+let combo = 0;
+let maxCombo = 0;
+let frameCount = 0;
+let fallingWords = [];
+let currentInput = '';
+let targetWord = null; // the word currently being matched
+let particles = [];
+let stars = [];
+let shakeTimer = 0;
+let flashAlpha = 0;
+let flashColor = '';
+let comboPopTimer = 0;
+let comboPopValue = 0;
+let speedMultiplier = 1;
+let spawnTimer = 0;
+
+// --- Clawd sprite ---
+const P = 4;
+const CRAB_COL = '#D77757';
+const CRAB_BG = '#16213e';
+
+const spriteStand = [
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+];
+
+const spriteCheer = [
+  [1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+  [1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,'E','E',1,1,1,1,'E','E',1,1,0,0],
+  [0,0,1,1,'E','E',1,1,1,1,'E','E',1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+];
+
+const spriteHurt = [
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,1,1,0,0,0,1,1,1,1,0,0,0,1,1,0],
+];
+
+const spriteDead = [
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [1,1,1,1,'E','E',1,1,1,1,'E','E',1,1,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+];
+
+let clawdAnim = 'stand'; // stand | cheer | hurt
+let clawdAnimTimer = 0;
+
+function drawSprite(sprite, ox, oy) {
+  for (let row = 0; row < sprite.length; row++) {
+    for (let col = 0; col < sprite[row].length; col++) {
+      const val = sprite[row][col];
+      if (val === 0) continue;
+      ctx.fillStyle = val === 'E' ? CRAB_BG : CRAB_COL;
+      ctx.fillRect(ox + col * P, oy + row * P, P, P);
+    }
+  }
+}
+
+// --- Init stars ---
+for (let i = 0; i < 40; i++) {
+  stars.push({
+    x: Math.random() * W,
+    y: Math.random() * (H - 100),
+    r: Math.random() * 1.5 + 0.3,
+    twinkle: Math.random() * Math.PI * 2,
+    speed: Math.random() * 0.02 + 0.01,
+  });
+}
+
+// --- Ground & death zone ---
+const groundY = H - 50;
+const deathY = H - 60;
+
+// --- Word management ---
+function pickWord() {
+  const pool = diff.wordPool();
+  // Avoid duplicates on screen
+  let word;
+  let attempts = 0;
+  do {
+    word = pool[Math.floor(Math.random() * pool.length)];
+    attempts++;
+  } while (fallingWords.some(w => w.word === word) && attempts < 20);
+  return word;
+}
+
+function spawnWord() {
+  if (fallingWords.length >= diff.maxOnScreen) return;
+
+  const word = pickWord();
+  // Measure text width to place it without overflow
+  ctx.font = 'bold 20px "Courier New", Consolas, monospace';
+  const textW = ctx.measureText(word).width;
+  const margin = 40;
+  const x = margin + Math.random() * (W - textW - margin * 2);
+
+  // Check for horizontal overlap with existing words near the top
+  const overlaps = fallingWords.some(w => {
+    if (w.y > 80) return false;
+    const wW = ctx.measureText(w.word).width;
+    return Math.abs(w.x - x) < Math.max(textW, wW) + 20;
+  });
+  if (overlaps) return; // skip this frame, try next time
+
+  const speed = diff.baseSpeed + Math.random() * (diff.maxSpeed - diff.baseSpeed) * 0.5;
+
+  fallingWords.push({
+    word,
+    x,
+    y: -10,
+    speed: speed * speedMultiplier,
+    matched: 0, // how many chars matched
+    color: `hsl(${Math.random() * 60 + 180}, 60%, 75%)`, // cyan-blue range
+    flash: 0,
+  });
+}
+
+function findTarget() {
+  if (currentInput.length === 0) {
+    targetWord = null;
+    return;
+  }
+  // Find the lowest (closest to death) word that starts with currentInput
+  let best = null;
+  let bestY = -1;
+  for (const w of fallingWords) {
+    if (w.word.startsWith(currentInput) && w.y > bestY) {
+      best = w;
+      bestY = w.y;
+    }
+  }
+  targetWord = best;
+  if (best) {
+    best.matched = currentInput.length;
+  }
+}
+
+// --- Particles ---
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 8,
+      vy: (Math.random() - 1) * 6,
+      r: Math.random() * 3 + 1,
+      color,
+      life: 1,
+      decay: Math.random() * 0.03 + 0.02,
+    });
+  }
+}
+
+function spawnLetterParticles(word, x, y) {
+  // Each letter flies apart
+  ctx.font = 'bold 18px "Courier New", Consolas, monospace';
+  for (let i = 0; i < word.length; i++) {
+    const charW = ctx.measureText(word[i]).width;
+    particles.push({
+      x: x + i * charW,
+      y: y,
+      vx: (Math.random() - 0.5) * 6,
+      vy: -(Math.random() * 4 + 2),
+      r: 0,
+      color: '#50c878',
+      life: 1,
+      decay: 0.02,
+      letter: word[i],
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.15;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = p.life;
+    if (p.letter) {
+      ctx.fillStyle = p.color;
+      ctx.font = 'bold 18px "Courier New", Consolas, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(p.letter, p.x, p.y);
+    } else {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// --- Lives display ---
+function renderLives() {
+  const el = document.getElementById('lives-display');
+  const maxLives = diff.lives;
+  let html = '';
+  for (let i = 0; i < maxLives; i++) {
+    html += `<span class="heart ${i < lives ? '' : 'lost'}">♥</span>`;
+  }
+  el.innerHTML = html;
+}
+
+// --- Score ---
+function formatScore(n) {
+  return String(Math.floor(n)).padStart(5, '0');
+}
+
+function updateScoreDisplay() {
+  document.getElementById('score-display').textContent = formatScore(score);
+  document.getElementById('hi-score').textContent = formatScore(hiScore);
+}
+
+function getComboMultiplier() {
+  if (combo < 3) return 1;
+  if (combo < 6) return 1.5;
+  if (combo < 10) return 2;
+  if (combo < 15) return 2.5;
+  return 3;
+}
+
+// --- Stars ---
+function drawStars() {
+  for (const s of stars) {
+    s.twinkle += s.speed;
+    const alpha = 0.3 + Math.sin(s.twinkle) * 0.25;
+    ctx.fillStyle = `rgba(232, 213, 183, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// --- Draw ground / death line ---
+function drawGround() {
+  // Death zone - subtle red glow at bottom
+  const grad = ctx.createLinearGradient(0, deathY - 20, 0, H);
+  grad.addColorStop(0, 'rgba(224, 82, 82, 0)');
+  grad.addColorStop(1, 'rgba(224, 82, 82, 0.08)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, deathY - 20, W, H - deathY + 20);
+
+  // Death line
+  ctx.strokeStyle = 'rgba(224, 82, 82, 0.3)';
+  ctx.setLineDash([8, 6]);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, deathY);
+  ctx.lineTo(W, deathY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Ground
+  ctx.strokeStyle = 'rgba(232, 213, 183, 0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  ctx.lineTo(W, groundY);
+  ctx.stroke();
+}
+
+// --- Draw Clawd ---
+function drawClawd() {
+  let sprite;
+  if (gameState === 'over') {
+    sprite = spriteDead;
+  } else if (clawdAnim === 'cheer') {
+    sprite = spriteCheer;
+  } else if (clawdAnim === 'hurt') {
+    sprite = spriteHurt;
+  } else {
+    sprite = spriteStand;
+  }
+
+  const spriteW = sprite[0].length * P;
+  const spriteH = sprite.length * P;
+  const drawX = W / 2 - spriteW / 2;
+  const drawY = groundY - spriteH;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+  ctx.beginPath();
+  ctx.ellipse(W / 2, groundY + 2, spriteW * 0.3, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  drawSprite(sprite, drawX, drawY);
+}
+
+// --- Draw input area ---
+function drawInputArea() {
+  // Input box at bottom center, above Clawd
+  const boxY = groundY + 8;
+  const boxH = 32;
+  const boxW = 300;
+  const boxX = W / 2 - boxW / 2;
+
+  // Box background
+  ctx.fillStyle = 'rgba(232, 213, 183, 0.06)';
+  ctx.strokeStyle = currentInput.length > 0 ? 'rgba(80, 200, 120, 0.4)' : 'rgba(232, 213, 183, 0.15)';
+  ctx.lineWidth = 1;
+  roundRect(boxX, boxY, boxW, boxH, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Input text
+  ctx.font = 'bold 20px "Courier New", Consolas, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  if (currentInput.length > 0) {
+    // Green for matching, red if no target found
+    ctx.fillStyle = targetWord ? '#50c878' : '#e05252';
+    ctx.fillText(currentInput, W / 2, boxY + boxH / 2);
+
+    // Blinking cursor
+    if (Math.floor(frameCount / 30) % 2 === 0) {
+      const textW = ctx.measureText(currentInput).width;
+      ctx.fillStyle = '#e8d5b7';
+      ctx.fillRect(W / 2 + textW / 2 + 3, boxY + 8, 2, boxH - 16);
+    }
+  } else if (gameState === 'running') {
+    // Placeholder
+    ctx.fillStyle = 'rgba(232, 213, 183, 0.2)';
+    ctx.fillText(window.i18n.t('typing.placeholder'), W / 2, boxY + boxH / 2);
+  }
+}
+
+// --- Draw falling words ---
+function drawFallingWords() {
+  ctx.font = 'bold 20px "Courier New", Consolas, monospace';
+  ctx.textBaseline = 'top';
+
+  for (const w of fallingWords) {
+    const isTarget = w === targetWord;
+    const textW = ctx.measureText(w.word).width;
+
+    // Glow effect for target
+    if (isTarget) {
+      ctx.shadowColor = '#50c878';
+      ctx.shadowBlur = 12;
+    }
+
+    // Draw each character
+    let cx = w.x;
+    for (let i = 0; i < w.word.length; i++) {
+      const ch = w.word[i];
+      const charW = ctx.measureText(ch).width;
+
+      if (i < w.matched && isTarget) {
+        // Matched chars = bright green
+        ctx.fillStyle = '#50c878';
+      } else if (w.y > deathY - 60) {
+        // Near death = red warning
+        ctx.fillStyle = '#e05252';
+      } else {
+        ctx.fillStyle = w.color;
+      }
+
+      ctx.textAlign = 'left';
+      ctx.fillText(ch, cx, w.y);
+      cx += charW;
+    }
+
+    ctx.shadowBlur = 0;
+
+    // Underline for target word
+    if (isTarget) {
+      ctx.strokeStyle = '#50c878';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(w.x, w.y + 24);
+      ctx.lineTo(w.x + textW, w.y + 24);
+      ctx.stroke();
+    }
+
+    // Warning indicator when word is close to death line
+    if (w.y > deathY - 40 && Math.floor(frameCount / 10) % 2 === 0) {
+      ctx.fillStyle = 'rgba(224, 82, 82, 0.3)';
+      ctx.fillRect(w.x - 4, w.y - 4, textW + 8, 30);
+    }
+  }
+}
+
+// --- Draw combo ---
+function drawCombo() {
+  if (combo >= 3) {
+    const mult = getComboMultiplier();
+    ctx.save();
+    ctx.font = 'bold 28px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = combo >= 10 ? '#f0c040' : combo >= 6 ? '#D77757' : '#50c878';
+    ctx.globalAlpha = 0.8;
+    ctx.fillText(`×${mult.toFixed(1)} COMBO`, W - 20, 20);
+
+    ctx.font = '16px system-ui, sans-serif';
+    ctx.fillText(`${combo} ${window.i18n.t('typing.streak')}`, W - 20, 52);
+    ctx.restore();
+  }
+
+  // Combo pop animation
+  if (comboPopTimer > 0) {
+    const scale = 1 + (comboPopTimer / 30) * 0.5;
+    const alpha = comboPopTimer / 30;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = `bold ${24 * scale}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#f0c040';
+    ctx.fillText(`+${comboPopValue}`, W / 2, H / 2 - 40 - (30 - comboPopTimer) * 2);
+    ctx.restore();
+    comboPopTimer--;
+  }
+}
+
+// --- Helpers ---
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// --- Idle / Game Over screens ---
+function drawIdle() {
+  ctx.fillStyle = 'rgba(232, 213, 183, 0.6)';
+  ctx.font = 'bold 20px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(window.i18n.t('typing.start'), W / 2, H / 2 - 30);
+
+  ctx.fillStyle = 'rgba(232, 213, 183, 0.3)';
+  ctx.font = '14px system-ui, sans-serif';
+  ctx.fillText(window.i18n.t('typing.start.hint'), W / 2, H / 2);
+
+  const colors = { easy: '#50c878', normal: '#D77757', hard: '#e05252' };
+  ctx.fillStyle = colors[difficulty];
+  ctx.font = 'bold 12px system-ui, sans-serif';
+  ctx.fillText(window.i18n.t(difficulty), W / 2, H / 2 + 28);
+}
+
+function drawGameOver() {
+  ctx.fillStyle = 'rgba(22, 33, 62, 0.7)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#e8d5b7';
+  ctx.font = 'bold 32px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(window.i18n.t('gameover'), W / 2, H / 2 - 50);
+
+  // Final score
+  ctx.font = 'bold 48px system-ui, sans-serif';
+  ctx.fillStyle = '#D77757';
+  ctx.fillText(formatScore(score), W / 2, H / 2 + 5);
+
+  // Max combo
+  if (maxCombo >= 3) {
+    ctx.font = '16px system-ui, sans-serif';
+    ctx.fillStyle = '#f0c040';
+    ctx.fillText(`MAX COMBO: ${maxCombo}`, W / 2, H / 2 + 35);
+  }
+
+  ctx.fillStyle = '#7a6f5d';
+  ctx.font = '16px system-ui, sans-serif';
+  ctx.fillText(window.i18n.t('restart'), W / 2, H / 2 + 65);
+
+  const colors = { easy: '#50c878', normal: '#D77757', hard: '#e05252' };
+  ctx.fillStyle = colors[difficulty];
+  ctx.font = 'bold 13px system-ui, sans-serif';
+  ctx.fillText(window.i18n.t(difficulty), W / 2, H / 2 + 90);
+}
+
+// --- Main game logic ---
+function update() {
+  if (gameState !== 'running') return;
+
+  frameCount++;
+
+  // Gradually speed up
+  speedMultiplier = 1 + frameCount * diff.speedUpRate;
+
+  // Spawn words
+  spawnTimer++;
+  const currentSpawnInterval = Math.max(diff.spawnInterval * (1 - frameCount * diff.spawnSpeedUp / 10000), 40);
+  if (spawnTimer >= currentSpawnInterval) {
+    spawnWord();
+    spawnTimer = 0;
+  }
+
+  // Move words down
+  for (let i = fallingWords.length - 1; i >= 0; i--) {
+    const w = fallingWords[i];
+    w.y += w.speed * speedMultiplier;
+
+    // Hit death line
+    if (w.y > deathY) {
+      // Lost a word!
+      lives--;
+      combo = 0;
+      renderLives();
+      shakeTimer = 10;
+      flashAlpha = 0.3;
+      flashColor = '#e05252';
+
+      // Clawd hurt animation
+      clawdAnim = 'hurt';
+      clawdAnimTimer = 30;
+
+      spawnParticles(w.x + 30, deathY, '#e05252', 8);
+
+      // Clear target if this was the target
+      if (w === targetWord) {
+        targetWord = null;
+        currentInput = '';
+      }
+
+      fallingWords.splice(i, 1);
+
+      if (lives <= 0) {
+        gameOver();
+        return;
+      }
+    }
+  }
+
+  // Clawd animation timer
+  if (clawdAnimTimer > 0) {
+    clawdAnimTimer--;
+    if (clawdAnimTimer === 0) clawdAnim = 'stand';
+  }
+
+  // Flash decay
+  if (flashAlpha > 0) flashAlpha -= 0.015;
+
+  updateParticles();
+  updateScoreDisplay();
+}
+
+function gameOver() {
+  gameState = 'over';
+  if (score > hiScore) {
+    hiScore = Math.floor(score);
+    localStorage.setItem('clawd-typing-hi-' + difficulty, hiScore);
+  }
+  if (window.clawdAuth && window.clawdAuth.user) {
+    window.clawdAuth.syncScore(difficulty, Math.floor(score));
+  }
+  updateScoreDisplay();
+}
+
+function draw() {
+  ctx.save();
+
+  // Screen shake
+  if (shakeTimer > 0) {
+    shakeTimer--;
+    ctx.translate(
+      (Math.random() - 0.5) * shakeTimer * 1.5,
+      (Math.random() - 0.5) * shakeTimer * 1.5
+    );
+  }
+
+  // Clear
+  ctx.fillStyle = '#16213e';
+  ctx.fillRect(0, 0, W, H);
+
+  // Flash
+  if (flashAlpha > 0) {
+    ctx.fillStyle = flashColor === '#e05252'
+      ? `rgba(224, 82, 82, ${flashAlpha})`
+      : `rgba(80, 200, 120, ${flashAlpha})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  drawStars();
+  drawGround();
+
+  if (gameState === 'running') {
+    drawFallingWords();
+    drawClawd();
+    drawInputArea();
+    drawCombo();
+  } else if (gameState === 'idle') {
+    drawClawd();
+    drawInputArea();
+    drawIdle();
+  } else if (gameState === 'over') {
+    drawClawd();
+    drawGameOver();
+  }
+
+  drawParticles();
+
+  ctx.restore();
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+// --- Start / Restart ---
+function startGame() {
+  hiScore = parseInt(localStorage.getItem('clawd-typing-hi-' + difficulty) || '0');
+  if (window.clawdAuth && window.clawdAuth.scores) {
+    const serverHi = window.clawdAuth.scores[difficulty] || 0;
+    if (serverHi > hiScore) { hiScore = serverHi; localStorage.setItem('clawd-typing-hi-' + difficulty, hiScore); }
+  }
+  gameState = 'running';
+  score = 0;
+  lives = diff.lives;
+  combo = 0;
+  maxCombo = 0;
+  frameCount = 0;
+  fallingWords = [];
+  currentInput = '';
+  targetWord = null;
+  particles = [];
+  shakeTimer = 0;
+  flashAlpha = 0;
+  speedMultiplier = 1;
+  spawnTimer = diff.spawnInterval - 60; // spawn first word quickly
+  clawdAnim = 'stand';
+  clawdAnimTimer = 0;
+  renderLives();
+  updateScoreDisplay();
+}
+
+// --- Input handling ---
+document.addEventListener('keydown', (e) => {
+  // Prevent IME issues
+  if (e.isComposing || e.keyCode === 229) return;
+
+  if (gameState === 'idle') {
+    startGame();
+    // Don't process this key as input, just start
+    return;
+  }
+
+  if (gameState === 'over') {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      startGame();
+    }
+    return;
+  }
+
+  // Game is running
+  if (e.code === 'Escape') {
+    e.preventDefault();
+    currentInput = '';
+    targetWord = null;
+    // Reset all matched counts
+    for (const w of fallingWords) w.matched = 0;
+    return;
+  }
+
+  if (e.code === 'Backspace') {
+    e.preventDefault();
+    if (currentInput.length > 0) {
+      currentInput = currentInput.slice(0, -1);
+      findTarget();
+      // Reset matched counts for non-targets
+      for (const w of fallingWords) {
+        if (w !== targetWord) w.matched = 0;
+      }
+    }
+    return;
+  }
+
+  // Only process single letter keys
+  if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+    e.preventDefault();
+    const ch = e.key.toLowerCase();
+    currentInput += ch;
+
+    findTarget();
+
+    if (targetWord && targetWord.word === currentInput) {
+      // Word completed!
+      const wordLen = targetWord.word.length;
+      const baseScore = 10 + wordLen * 2;
+      const multiplier = getComboMultiplier();
+      const earned = Math.floor(baseScore * multiplier);
+      score += earned;
+      combo++;
+      if (combo > maxCombo) maxCombo = combo;
+
+      // Visual feedback
+      comboPopValue = earned;
+      comboPopTimer = 30;
+      flashAlpha = 0.15;
+      flashColor = '#50c878';
+
+      // Clawd cheer
+      clawdAnim = 'cheer';
+      clawdAnimTimer = 20;
+
+      // Particles
+      spawnLetterParticles(targetWord.word, targetWord.x, targetWord.y);
+      spawnParticles(targetWord.x + 30, targetWord.y, '#50c878', 6);
+
+      // Remove word
+      const idx = fallingWords.indexOf(targetWord);
+      if (idx >= 0) fallingWords.splice(idx, 1);
+
+      currentInput = '';
+      targetWord = null;
+      // Reset all matched
+      for (const w of fallingWords) w.matched = 0;
+    } else if (!targetWord) {
+      // No matching word — wrong input, don't penalize, just show red
+    }
+  }
+});
+
+// Handle IME composition events
+document.addEventListener('compositionstart', () => {
+  // Could add visual indicator that IME is active
+});
+
+// --- Responsive ---
+function resize() {
+  const maxW = Math.min(window.innerWidth * 0.95, 800);
+  canvas.style.width = maxW + 'px';
+  canvas.style.height = (maxW * H / W) + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- Init ---
+renderLives();
+updateScoreDisplay();
+gameLoop();
+</script>
+<div id="leaderboard-area"></div>
+
+<script src="auth.js"></script>
+<script src="leaderboard.js"></script>
+</body>
+</html>
