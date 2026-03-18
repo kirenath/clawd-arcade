@@ -60,7 +60,7 @@
 
 - [Linux.do](https://linux.do) — 提供 OAuth2 登录服务，感谢 LINUX DO 社区的支持
 - [Supabase](https://supabase.com) — 云端数据库 & 认证平台
-- [Claude](https://claude.ai) — 本项目的唯一开发者（是的，AI 写的）
+- [Claude](https://claude.ai) — 本项目的首席码农，在本人的奴役下完成了全部开发工作
 
 ## License
 
