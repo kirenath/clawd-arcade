@@ -54,6 +54,10 @@
     border-bottom: none;
   }
 
+  #score-bar:has(+ #difficulty-bar) {
+    border-radius: 12px 12px 0 0;
+  }
+
   .score-label {
     color: #7a6f5d;
     font-size: 13px;
@@ -76,6 +80,50 @@
     border-top: none;
     max-width: 100%;
   }
+
+  #difficulty-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(232, 213, 183, 0.05);
+    border-left: 1px solid rgba(232, 213, 183, 0.1);
+    border-right: 1px solid rgba(232, 213, 183, 0.1);
+  }
+
+  #difficulty-bar .diff-label {
+    color: #7a6f5d;
+    font-size: 13px;
+    margin-right: 4px;
+  }
+
+  .diff-btn {
+    background: rgba(232, 213, 183, 0.08);
+    border: 1px solid rgba(232, 213, 183, 0.15);
+    border-radius: 6px;
+    padding: 4px 14px;
+    color: #7a6f5d;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .diff-btn:hover {
+    background: rgba(232, 213, 183, 0.15);
+    color: #e8d5b7;
+  }
+
+  .diff-btn.active {
+    background: rgba(215, 119, 87, 0.25);
+    border-color: #D77757;
+    color: #e8d5b7;
+    font-weight: 600;
+  }
+
+  .diff-btn.active.easy { background: rgba(80, 200, 120, 0.2); border-color: #50c878; }
+  .diff-btn.active.hard { background: rgba(224, 82, 82, 0.2); border-color: #e05252; }
 
   #instructions {
     text-align: center;
@@ -112,9 +160,15 @@
       <span class="score-value" id="hi-score">00000</span>
     </div>
   </div>
+  <div id="difficulty-bar">
+    <span class="diff-label">DIFFICULTY</span>
+    <button class="diff-btn easy" data-diff="easy" onclick="setDifficulty('easy')">EASY</button>
+    <button class="diff-btn active" data-diff="normal" onclick="setDifficulty('normal')">NORMAL</button>
+    <button class="diff-btn hard" data-diff="hard" onclick="setDifficulty('hard')">HARD</button>
+  </div>
   <canvas id="game" width="800" height="250"></canvas>
   <div id="instructions">
-    <kbd>SPACE</kbd> / <kbd>↑</kbd> / click to jump &nbsp;|&nbsp; <kbd>↓</kbd> to duck
+    <kbd>SPACE</kbd> / <kbd>↑</kbd> / click to jump &nbsp;|&nbsp; <kbd>↓</kbd> to duck &nbsp;|&nbsp; <kbd>↓</kbd> + <kbd>SPACE</kbd> super jump
   </div>
 </div>
 
@@ -123,10 +177,80 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = 800, H = 250;
 
+// --- Difficulty settings ---
+const DIFFICULTIES = {
+  easy: {
+    initSpeed: 5,
+    maxSpeed: 11,
+    speedScale: 0.3,       // speed += floor(score/100) * this
+    gravity: 0.6,
+    jumpForce: -13.5,
+    spawnBase: 70,          // base spawn interval
+    spawnRand: 70,          // random range added to base
+    spawnMinGap: 45,        // minimum spawn interval
+    spawnScoreFactor: 15,   // score divisor for spawn reduction
+    birdScore: 400,         // score threshold for birds
+    hitboxShrink: 5,        // extra hitbox forgiveness (px)
+    superJumpMax: -18,      // max super jump force
+    superJumpChargeRate: 0.12, // force gained per frame of crouching
+    superJumpReady: 20,     // frames of crouching needed to reach full charge
+    label: 'EASY',
+  },
+  normal: {
+    initSpeed: 6,
+    maxSpeed: 16,
+    speedScale: 0.5,
+    gravity: 0.65,
+    jumpForce: -13,
+    spawnBase: 50,
+    spawnRand: 60,
+    spawnMinGap: 30,
+    spawnScoreFactor: 20,
+    birdScore: 200,
+    hitboxShrink: 3,
+    superJumpMax: -17.5,
+    superJumpChargeRate: 0.1,
+    superJumpReady: 25,
+    label: 'NORMAL',
+  },
+  hard: {
+    initSpeed: 7.5,
+    maxSpeed: 20,
+    speedScale: 0.7,
+    gravity: 0.7,
+    jumpForce: -13,
+    spawnBase: 38,
+    spawnRand: 45,
+    spawnMinGap: 22,
+    spawnScoreFactor: 25,
+    birdScore: 100,
+    hitboxShrink: 1,
+    superJumpMax: -17,
+    superJumpChargeRate: 0.08,
+    superJumpReady: 30,
+    label: 'HARD',
+  },
+};
+
+let difficulty = 'normal';
+let diff = DIFFICULTIES[difficulty];
+
+function setDifficulty(d) {
+  if (gameState === 'running') return; // can't change mid-game
+  difficulty = d;
+  diff = DIFFICULTIES[d];
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.diff === d);
+  });
+  // Update hi-score display for this difficulty
+  hiScore = parseInt(localStorage.getItem('clawd-hi-' + difficulty) || '0');
+  updateScoreDisplay();
+}
+
 // --- State ---
 let gameState = 'idle'; // idle | running | over
 let score = 0;
-let hiScore = parseInt(localStorage.getItem('clawd-hi') || '0');
+let hiScore = parseInt(localStorage.getItem('clawd-hi-normal') || '0');
 let speed = 6;
 let frameCount = 0;
 let groundY = H - 40;
@@ -144,10 +268,11 @@ const clawd = {
   vy: 0, jumping: false, ducking: false,
   frame: 0, frameTimer: 0,
   eyeBlink: 0, blinkTimer: 0,
+  crouchTimer: 0, // frames spent crouching (for super jump)
 };
 
-const GRAVITY = 0.65;
-const JUMP_FORCE = -13;
+let GRAVITY = diff.gravity;
+let JUMP_FORCE = diff.jumpForce;
 const DUCK_H = 24;
 
 // --- Init stars ---
@@ -332,14 +457,42 @@ function drawClawd() {
     }
   }
 
+  // Super jump charge indicator
+  if (c.ducking && c.crouchTimer > 0 && gameState === 'running') {
+    const charge = Math.min(c.crouchTimer / diff.superJumpReady, 1);
+    if (charge > 0.1) {
+      // Charge bar under Clawd
+      const barW = spriteW * 0.8;
+      const barH = 3;
+      const barX = c.x - barW / 2;
+      const barY = groundY + 6;
+
+      // Background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(barX, barY, barW, barH);
+
+      // Fill — yellow when full, orange when charging
+      const barColor = charge >= 1 ? '#f0c040' : '#d97757';
+      ctx.fillStyle = barColor;
+      ctx.fillRect(barX, barY, barW * charge, barH);
+
+      // Glow when fully charged
+      if (charge >= 1) {
+        ctx.shadowColor = '#f0c040';
+        ctx.shadowBlur = 8;
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.shadowBlur = 0;
+      }
+    }
+  }
+
   ctx.restore();
 }
 
 // --- Obstacles ---
 function spawnObstacle() {
   const types = ['cactus_s', 'cactus_m', 'cactus_l', 'bird'];
-  // Birds only appear after score 200
-  const available = score > 200 ? types : types.slice(0, 3);
+  const available = score > diff.birdScore ? types : types.slice(0, 3);
   const type = available[Math.floor(Math.random() * available.length)];
 
   let ob = { x: W + 20, type };
@@ -535,10 +688,11 @@ function checkCollision() {
   const py2 = py1 + sprH - P * 4;
 
   for (const ob of obstacles) {
-    const ox1 = ob.x + 3;
-    const oy1 = ob.y + 3;
-    const ox2 = ob.x + ob.w - 3;
-    const oy2 = ob.y + ob.h - 3;
+    const s = diff.hitboxShrink;
+    const ox1 = ob.x + s;
+    const oy1 = ob.y + s;
+    const ox2 = ob.x + ob.w - s;
+    const oy2 = ob.y + ob.h - s;
 
     if (px1 < ox2 && px2 > ox1 && py1 < oy2 && py2 > oy1) {
       return ob;
@@ -584,6 +738,11 @@ function drawGameOver() {
   ctx.fillStyle = '#7a6f5d';
   ctx.font = '16px system-ui, sans-serif';
   ctx.fillText('Press SPACE to restart', W/2, H/2 + 20);
+
+  const colors = { easy: '#50c878', normal: '#D77757', hard: '#e05252' };
+  ctx.fillStyle = colors[difficulty];
+  ctx.font = 'bold 13px system-ui, sans-serif';
+  ctx.fillText(diff.label, W/2, H/2 + 46);
 }
 
 // --- Idle screen ---
@@ -596,6 +755,12 @@ function drawIdle() {
   ctx.fillStyle = 'rgba(232, 213, 183, 0.3)';
   ctx.font = '14px system-ui, sans-serif';
   ctx.fillText('Help Clawd the crab dodge the errors and bugs!', W/2, H/2 + 20);
+
+  // Difficulty indicator
+  const colors = { easy: '#50c878', normal: '#D77757', hard: '#e05252' };
+  ctx.fillStyle = colors[difficulty];
+  ctx.font = 'bold 12px system-ui, sans-serif';
+  ctx.fillText(diff.label, W/2, H/2 + 44);
 }
 
 // --- Main Loop ---
@@ -609,8 +774,8 @@ function update() {
 
   // Score
   score += speed * 0.02;
-  speed = 6 + Math.floor(score / 100) * 0.5;
-  speed = Math.min(speed, 16);
+  speed = diff.initSpeed + Math.floor(score / 100) * diff.speedScale;
+  speed = Math.min(speed, diff.maxSpeed);
 
   // Milestone flash every 100 points
   const currentMilestone = Math.floor(score / 100);
@@ -634,6 +799,27 @@ function update() {
     }
   }
 
+  // Crouch charge for super jump
+  if (clawd.ducking && !clawd.jumping) {
+    clawd.crouchTimer++;
+    // Charge-up particles when nearing full charge
+    if (clawd.crouchTimer > diff.superJumpReady * 0.4 && frameCount % 3 === 0) {
+      const intensity = Math.min(clawd.crouchTimer / diff.superJumpReady, 1);
+      const px = clawd.x + (Math.random() - 0.5) * 30;
+      particles.push({
+        x: px, y: groundY - 2,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: -(Math.random() * 3 + 1) * intensity,
+        r: Math.random() * 2 + 1,
+        color: intensity >= 1 ? '#f0c040' : '#d97757',
+        life: 0.6 + intensity * 0.4,
+        decay: 0.04,
+      });
+    }
+  } else {
+    clawd.crouchTimer = 0;
+  }
+
   // Running animation
   clawd.frameTimer++;
   if (clawd.frameTimer > 6) {
@@ -654,8 +840,8 @@ function update() {
   if (lastSpawn >= spawnInterval) {
     spawnObstacle();
     lastSpawn = 0;
-    spawnInterval = 50 + Math.random() * 60 - Math.min(score / 20, 25);
-    spawnInterval = Math.max(spawnInterval, 30);
+    spawnInterval = diff.spawnBase + Math.random() * diff.spawnRand - Math.min(score / diff.spawnScoreFactor, 25);
+    spawnInterval = Math.max(spawnInterval, diff.spawnMinGap);
   }
 
   // Move obstacles
@@ -675,7 +861,7 @@ function update() {
     spawnParticles(clawd.x, clawd.y - clawd.h/2, '#d97757', 10);
     if (score > hiScore) {
       hiScore = Math.floor(score);
-      localStorage.setItem('clawd-hi', hiScore);
+      localStorage.setItem('clawd-hi-' + difficulty, hiScore);
     }
   }
 
@@ -732,42 +918,51 @@ function gameLoop() {
 }
 
 // --- Input ---
+function startGame() {
+  GRAVITY = diff.gravity;
+  JUMP_FORCE = diff.jumpForce;
+  hiScore = parseInt(localStorage.getItem('clawd-hi-' + difficulty) || '0');
+  gameState = 'running';
+  score = 0;
+  speed = diff.initSpeed;
+  obstacles = [];
+  lastSpawn = 0;
+  spawnInterval = diff.spawnBase + diff.spawnRand / 2;
+  milestone = 0;
+  frameCount = 0;
+  clawd.y = groundY;
+  clawd.vy = 0;
+  clawd.jumping = false;
+  clawd.ducking = false;
+  clawd.crouchTimer = 0;
+  particles = [];
+  updateScoreDisplay();
+}
+
 function jump() {
   if (gameState === 'idle') {
-    gameState = 'running';
-    score = 0;
-    speed = 6;
-    obstacles = [];
-    lastSpawn = 0;
-    milestone = 0;
-    frameCount = 0;
-    clawd.y = groundY;
-    clawd.vy = 0;
-    clawd.jumping = false;
-    clawd.ducking = false;
-    updateScoreDisplay();
+    startGame();
   }
   if (gameState === 'over') {
-    gameState = 'running';
-    score = 0;
-    speed = 6;
-    obstacles = [];
-    lastSpawn = 0;
-    milestone = 0;
-    frameCount = 0;
-    clawd.y = groundY;
-    clawd.vy = 0;
-    clawd.jumping = false;
-    clawd.ducking = false;
-    particles = [];
-    updateScoreDisplay();
+    startGame();
     return;
   }
   if (gameState === 'running' && !clawd.jumping) {
-    clawd.vy = JUMP_FORCE;
+    if (clawd.ducking && clawd.crouchTimer > 0) {
+      // Super jump! Strength scales with crouch duration
+      const charge = Math.min(clawd.crouchTimer / diff.superJumpReady, 1);
+      clawd.vy = JUMP_FORCE + (diff.superJumpMax - JUMP_FORCE) * charge;
+      // Burst particles for super jump
+      const burstCount = Math.floor(6 + charge * 12);
+      spawnParticles(clawd.x, groundY, charge >= 1 ? '#f0c040' : '#f0a030', burstCount);
+      spawnParticles(clawd.x, groundY, '#d97757', 5);
+    } else {
+      clawd.vy = JUMP_FORCE;
+      spawnParticles(clawd.x, groundY, '#d97757', 3);
+    }
     clawd.jumping = true;
     clawd.ducking = false;
-    spawnParticles(clawd.x, groundY, '#d97757', 3);
+    clawd.crouchTimer = 0;
   }
 }
 
@@ -804,6 +999,12 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 resize();
+
+// --- Migrate old hi-score to normal difficulty ---
+if (localStorage.getItem('clawd-hi') && !localStorage.getItem('clawd-hi-normal')) {
+  localStorage.setItem('clawd-hi-normal', localStorage.getItem('clawd-hi'));
+}
+hiScore = parseInt(localStorage.getItem('clawd-hi-normal') || '0');
 
 // --- Start ---
 updateScoreDisplay();
