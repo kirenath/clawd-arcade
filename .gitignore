@@ -1,2 +1,12 @@
+# 依赖
+node_modules/
+
+# 环境变量（含密钥，绝对不能提交）
+.env
+.env.local
+.env.production
+
+# 项目私有文件
 .claude/
 do-not-push/
+prd/

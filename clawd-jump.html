@@ -149,6 +149,7 @@
   <div id="title-area">
     <h1>CLAWD JUMP</h1>
     <div class="subtitle">no internet? no problem.</div>
+    <div id="auth-area"></div>
   </div>
   <div id="score-bar">
     <div>
@@ -863,6 +864,9 @@ function update() {
       hiScore = Math.floor(score);
       localStorage.setItem('clawd-hi-' + difficulty, hiScore);
     }
+    if (window.clawdAuth && window.clawdAuth.user) {
+      window.clawdAuth.syncScore(difficulty, Math.floor(score));
+    }
   }
 
   updateParticles();
@@ -922,6 +926,10 @@ function startGame() {
   GRAVITY = diff.gravity;
   JUMP_FORCE = diff.jumpForce;
   hiScore = parseInt(localStorage.getItem('clawd-hi-' + difficulty) || '0');
+  if (window.clawdAuth && window.clawdAuth.scores) {
+    const serverHi = window.clawdAuth.scores[difficulty] || 0;
+    if (serverHi > hiScore) { hiScore = serverHi; localStorage.setItem('clawd-hi-' + difficulty, hiScore); }
+  }
   gameState = 'running';
   score = 0;
   speed = diff.initSpeed;
@@ -1010,5 +1018,6 @@ hiScore = parseInt(localStorage.getItem('clawd-hi-normal') || '0');
 updateScoreDisplay();
 gameLoop();
 </script>
+<script src="auth.js"></script>
 </body>
 </html>
