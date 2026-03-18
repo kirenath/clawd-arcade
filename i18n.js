@@ -39,6 +39,8 @@
       'login': '使用 Linux.do 登录',
       'logout': '登出',
       // leaderboard
+      'lb.game.jump': 'Clawd 跳跳',
+      'lb.game.typing': 'Clawd 打字',
       'leaderboard': '排行榜',
       'lb.rank': '#',
       'lb.player': '玩家',
@@ -83,6 +85,8 @@
       'login': 'Login with Linux.do',
       'logout': 'Logout',
       // leaderboard
+      'lb.game.jump': 'Clawd Jump',
+      'lb.game.typing': 'Clawd Typing',
       'leaderboard': 'LEADERBOARD',
       'lb.rank': '#',
       'lb.player': 'Player',

@@ -20,6 +20,27 @@
       color: #e8d5b7;
       margin-bottom: 16px;
     }
+    .lb-game-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .lb-game-tab {
+      background: rgba(232, 213, 183, 0.06);
+      border: 1px solid rgba(232, 213, 183, 0.12);
+      color: #7a6f5d;
+      padding: 8px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: inherit;
+      font-weight: 600;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+    .lb-game-tab:hover { border-color: rgba(232, 213, 183, 0.4); color: #e8d5b7; }
+    .lb-game-tab.active { background: rgba(215, 119, 87, 0.18); border-color: #D77757; color: #D77757; }
     .lb-tabs {
       display: flex;
       justify-content: center;
@@ -82,12 +103,15 @@
   `;
   document.head.appendChild(style);
 
-  const gameName = area.dataset.game || 'jump';
+  // Determine mode: multi-game (index page) or single-game (game page)
+  const gamesAttr = area.dataset.games;
+  const games = gamesAttr ? gamesAttr.split(',') : null;
+  let currentGame = games ? games[0] : (area.dataset.game || 'jump');
   let currentDiff = 'normal';
 
-  async function loadLeaderboard(difficulty) {
+  async function loadLeaderboard(game, difficulty) {
     try {
-      const res = await fetch(`/api/leaderboard?game=${gameName}&difficulty=${difficulty}&limit=20`, {
+      const res = await fetch(`/api/leaderboard?game=${game}&difficulty=${difficulty}&limit=20`, {
         signal: AbortSignal.timeout(3000)
       });
       if (!res.ok) return null;
@@ -131,9 +155,8 @@
     const t = window.i18n ? window.i18n.t : (k) => k;
     content.innerHTML = `<div class="lb-empty">${t('lb.loading')}</div>`;
 
-    const data = await loadLeaderboard(difficulty);
+    const data = await loadLeaderboard(currentGame, difficulty);
     if (data === null && !area.dataset.loaded) {
-      // Backend not available, hide entirely
       area.style.display = 'none';
       return;
     }
@@ -141,11 +164,30 @@
     content.innerHTML = renderTable(data);
   }
 
+  function switchGame(game) {
+    currentGame = game;
+    const gameTabs = area.querySelectorAll('.lb-game-tab');
+    gameTabs.forEach(t => t.classList.toggle('active', t.dataset.game === game));
+    render(currentDiff);
+  }
+
   // Build UI
   function buildUI() {
     const t = window.i18n ? window.i18n.t : (k) => k;
+
+    let gameTabsHTML = '';
+    if (games) {
+      gameTabsHTML = '<div class="lb-game-tabs">';
+      games.forEach(g => {
+        const active = g === currentGame ? ' active' : '';
+        gameTabsHTML += `<button class="lb-game-tab${active}" data-game="${g}">${t('lb.game.' + g)}</button>`;
+      });
+      gameTabsHTML += '</div>';
+    }
+
     area.innerHTML = `
       <h2 class="lb-title">${t('leaderboard')}</h2>
+      ${gameTabsHTML}
       <div class="lb-tabs">
         <button class="lb-tab" data-diff="easy">${t('easy')}</button>
         <button class="lb-tab active" data-diff="normal">${t('normal')}</button>
@@ -153,6 +195,13 @@
       </div>
       <div class="lb-content"></div>
     `;
+
+    if (games) {
+      area.querySelectorAll('.lb-game-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchGame(tab.dataset.game));
+      });
+    }
+
     area.querySelectorAll('.lb-tab').forEach(tab => {
       tab.addEventListener('click', () => render(tab.dataset.diff));
     });
@@ -162,7 +211,13 @@
 
   window.addEventListener('langchange', () => {
     const activeDiff = currentDiff;
+    const activeGame = currentGame;
     buildUI();
+    currentGame = activeGame;
+    // Re-highlight game tab after rebuild
+    if (games) {
+      area.querySelectorAll('.lb-game-tab').forEach(t => t.classList.toggle('active', t.dataset.game === activeGame));
+    }
     render(activeDiff);
   });
 
