@@ -118,18 +118,22 @@
     };
 
     // Render user info
-    authArea.innerHTML = `
-      <div class="clawd-user-info">
-        <img class="clawd-avatar" src="${user.avatar_url}" alt="${user.name}">
-        <span class="clawd-username">${user.name}</span>
-        <button class="clawd-logout-btn" id="clawd-logout">登出</button>
-      </div>
-    `;
-
-    document.getElementById('clawd-logout').addEventListener('click', async () => {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.reload();
-    });
+    function renderAuthUI() {
+      const t = window.i18n ? window.i18n.t : (k) => k;
+      authArea.innerHTML = `
+        <div class="clawd-user-info">
+          <img class="clawd-avatar" src="${user.avatar_url}" alt="${user.name}">
+          <span class="clawd-username">${user.name}</span>
+          <button class="clawd-logout-btn" id="clawd-logout">${t('logout')}</button>
+        </div>
+      `;
+      document.getElementById('clawd-logout').addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.reload();
+      });
+    }
+    renderAuthUI();
+    window.addEventListener('langchange', renderAuthUI);
 
     // First-login sync: upload localStorage scores to server
     for (const diff of ['easy', 'normal', 'hard']) {
@@ -140,8 +144,13 @@
     }
   } else {
     // Show login button
-    authArea.innerHTML = `
-      <a class="clawd-login-btn" href="/api/auth/login">使用 Linux.do 登录</a>
-    `;
+    function renderLoginBtn() {
+      const t = window.i18n ? window.i18n.t : (k) => k;
+      authArea.innerHTML = `
+        <a class="clawd-login-btn" href="/api/auth/login">${t('login')}</a>
+      `;
+    }
+    renderLoginBtn();
+    window.addEventListener('langchange', renderLoginBtn);
   }
 })();

@@ -97,11 +97,12 @@
   }
 
   function renderTable(entries) {
+    const t = window.i18n ? window.i18n.t : (k) => k;
     if (!entries || entries.length === 0) {
-      return '<div class="lb-empty">暂无记录</div>';
+      return `<div class="lb-empty">${t('lb.empty')}</div>`;
     }
     let html = `<table class="lb-table">
-      <thead><tr><th class="lb-rank">#</th><th>玩家</th><th class="lb-score">分数</th></tr></thead><tbody>`;
+      <thead><tr><th class="lb-rank">${t('lb.rank')}</th><th>${t('lb.player')}</th><th class="lb-score">${t('lb.score')}</th></tr></thead><tbody>`;
     entries.forEach((e, i) => {
       const rankClass = i < 3 ? ` lb-rank-${i + 1}` : '';
       html += `<tr>
@@ -123,7 +124,8 @@
     tabs.forEach(t => t.classList.toggle('active', t.dataset.diff === difficulty));
 
     const content = area.querySelector('.lb-content');
-    content.innerHTML = '<div class="lb-empty">加载中...</div>';
+    const t = window.i18n ? window.i18n.t : (k) => k;
+    content.innerHTML = `<div class="lb-empty">${t('lb.loading')}</div>`;
 
     const data = await loadLeaderboard(difficulty);
     if (data === null && !area.dataset.loaded) {
@@ -136,18 +138,28 @@
   }
 
   // Build UI
-  area.innerHTML = `
-    <h2 class="lb-title">LEADERBOARD</h2>
-    <div class="lb-tabs">
-      <button class="lb-tab" data-diff="easy">EASY</button>
-      <button class="lb-tab active" data-diff="normal">NORMAL</button>
-      <button class="lb-tab" data-diff="hard">HARD</button>
-    </div>
-    <div class="lb-content"></div>
-  `;
+  function buildUI() {
+    const t = window.i18n ? window.i18n.t : (k) => k;
+    area.innerHTML = `
+      <h2 class="lb-title">${t('leaderboard')}</h2>
+      <div class="lb-tabs">
+        <button class="lb-tab" data-diff="easy">${t('easy')}</button>
+        <button class="lb-tab active" data-diff="normal">${t('normal')}</button>
+        <button class="lb-tab" data-diff="hard">${t('hard')}</button>
+      </div>
+      <div class="lb-content"></div>
+    `;
+    area.querySelectorAll('.lb-tab').forEach(tab => {
+      tab.addEventListener('click', () => render(tab.dataset.diff));
+    });
+  }
 
-  area.querySelectorAll('.lb-tab').forEach(tab => {
-    tab.addEventListener('click', () => render(tab.dataset.diff));
+  buildUI();
+
+  window.addEventListener('langchange', () => {
+    const activeDiff = currentDiff;
+    buildUI();
+    render(activeDiff);
   });
 
   // Initial load

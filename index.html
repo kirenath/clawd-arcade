@@ -157,7 +157,7 @@
     <canvas id="logo-clawd" width="16" height="12"></canvas>
     <h1>CLAWD ARCADE</h1>
   </div>
-  <p>a collection of tiny games starring Clawd the crab</p>
+  <p id="arcade-subtitle"></p>
   <div id="auth-area"></div>
 </header>
 
@@ -167,17 +167,17 @@
     <div class="card-preview" id="preview-jump"></div>
     <div class="card-body">
       <h2>CLAWD JUMP</h2>
-      <p>Chrome dino-style endless runner. Jump over obstacles, duck under birds, survive as long as you can.</p>
-      <span class="tag tag-playable">PLAY NOW</span>
+      <p id="game-jump-desc"></p>
+      <span class="tag tag-playable" id="tag-play"></span>
     </div>
   </a>
 
   <div class="game-card coming-soon">
     <div class="card-preview" id="preview-tbd"></div>
     <div class="card-body">
-      <h2>???</h2>
-      <p>More Clawd adventures coming soon...</p>
-      <span class="tag tag-soon">COMING SOON</span>
+      <h2 id="game-tbd-title"></h2>
+      <p id="game-tbd-desc"></p>
+      <span class="tag tag-soon" id="tag-soon"></span>
     </div>
   </div>
 
@@ -185,7 +185,7 @@
 
 <div id="leaderboard-area"></div>
 
-<footer>CLAWD ARCADE &mdash; built with Claude</footer>
+<footer id="arcade-footer"></footer>
 
 <script>
 // Pixel art constants
@@ -308,6 +308,21 @@ function drawSprite(ctx, sprite, ox, oy, px) {
     ctx.fillRect(offx + x * s, offy + y * s, s - 1, s - 1);
   });
 })();
+</script>
+<script src="i18n.js"></script>
+<script>
+function applyIndexI18n() {
+  const t = window.i18n.t;
+  document.getElementById('arcade-subtitle').textContent = t('arcade.subtitle');
+  document.getElementById('game-jump-desc').textContent = t('game.jump.desc');
+  document.getElementById('tag-play').textContent = t('tag.play');
+  document.getElementById('game-tbd-title').textContent = t('game.tbd.title');
+  document.getElementById('game-tbd-desc').textContent = t('game.tbd.desc');
+  document.getElementById('tag-soon').textContent = t('tag.soon');
+  document.getElementById('arcade-footer').textContent = t('footer');
+}
+applyIndexI18n();
+window.addEventListener('langchange', applyIndexI18n);
 </script>
 <script src="auth.js"></script>
 <script src="leaderboard.js"></script>

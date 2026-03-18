@@ -12,11 +12,36 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    height: 100vh;
+    min-height: 100vh;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    overflow: hidden;
     user-select: none;
+    padding-top: 40px;
+  }
+
+  .back-btn {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    background: rgba(232, 213, 183, 0.08);
+    border: 1px solid rgba(232, 213, 183, 0.15);
+    border-radius: 8px;
+    padding: 6px 14px;
+    color: #7a6f5d;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .back-btn:hover {
+    background: rgba(232, 213, 183, 0.15);
+    color: #e8d5b7;
+    border-color: rgba(232, 213, 183, 0.3);
   }
 
   #game-container {
@@ -128,6 +153,7 @@
   #instructions {
     text-align: center;
     margin-top: 16px;
+    margin-bottom: 20px;
     color: #5a5a7a;
     font-size: 13px;
   }
@@ -145,34 +171,58 @@
 </head>
 <body>
 
+<a class="back-btn" href="index.html" id="back-btn"></a>
+
 <div id="game-container">
   <div id="title-area">
     <h1>CLAWD JUMP</h1>
-    <div class="subtitle">no internet? no problem.</div>
+    <div class="subtitle" id="jump-subtitle"></div>
     <div id="auth-area"></div>
   </div>
   <div id="score-bar">
     <div>
-      <span class="score-label">SCORE </span>
+      <span class="score-label" id="score-label"></span>
       <span class="score-value" id="score-display">00000</span>
     </div>
     <div>
-      <span class="score-label">HI </span>
+      <span class="score-label" id="hi-label"></span>
       <span class="score-value" id="hi-score">00000</span>
     </div>
   </div>
   <div id="difficulty-bar">
-    <span class="diff-label">DIFFICULTY</span>
-    <button class="diff-btn easy" data-diff="easy" onclick="setDifficulty('easy')">EASY</button>
-    <button class="diff-btn active" data-diff="normal" onclick="setDifficulty('normal')">NORMAL</button>
-    <button class="diff-btn hard" data-diff="hard" onclick="setDifficulty('hard')">HARD</button>
+    <span class="diff-label" id="diff-label"></span>
+    <button class="diff-btn easy" data-diff="easy" onclick="setDifficulty('easy')"></button>
+    <button class="diff-btn active" data-diff="normal" onclick="setDifficulty('normal')"></button>
+    <button class="diff-btn hard" data-diff="hard" onclick="setDifficulty('hard')"></button>
   </div>
   <canvas id="game" width="800" height="250"></canvas>
-  <div id="instructions">
-    <kbd>SPACE</kbd> / <kbd>↑</kbd> / click to jump &nbsp;|&nbsp; <kbd>↓</kbd> to duck &nbsp;|&nbsp; <kbd>↓</kbd> + <kbd>SPACE</kbd> super jump
-  </div>
+  <div id="instructions"></div>
 </div>
 
+<script src="i18n.js"></script>
+<script>
+function applyJumpI18n() {
+  const t = window.i18n.t;
+  document.getElementById('back-btn').textContent = t('back.arcade');
+  document.getElementById('jump-subtitle').textContent = t('jump.subtitle');
+  document.getElementById('score-label').textContent = t('score') + ' ';
+  document.getElementById('hi-label').textContent = t('hi') + ' ';
+  document.getElementById('diff-label').textContent = t('difficulty');
+  const btns = document.querySelectorAll('.diff-btn');
+  btns.forEach(btn => {
+    btn.textContent = t(btn.dataset.diff);
+  });
+  // Instructions with kbd elements
+  const instrStr = t('instructions');
+  const instrEl = document.getElementById('instructions');
+  instrEl.innerHTML = instrStr
+    .replace(/\{space\}/g, '<kbd>SPACE</kbd>')
+    .replace(/\{up\}/g, '<kbd>↑</kbd>')
+    .replace(/\{down\}/g, '<kbd>↓</kbd>');
+}
+applyJumpI18n();
+window.addEventListener('langchange', applyJumpI18n);
+</script>
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -734,16 +784,16 @@ function drawGameOver() {
   ctx.fillStyle = '#e8d5b7';
   ctx.font = 'bold 32px system-ui, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('GAME OVER', W/2, H/2 - 20);
+  ctx.fillText(window.i18n.t('gameover'), W/2, H/2 - 20);
 
   ctx.fillStyle = '#7a6f5d';
   ctx.font = '16px system-ui, sans-serif';
-  ctx.fillText('Press SPACE to restart', W/2, H/2 + 20);
+  ctx.fillText(window.i18n.t('restart'), W/2, H/2 + 20);
 
   const colors = { easy: '#50c878', normal: '#D77757', hard: '#e05252' };
   ctx.fillStyle = colors[difficulty];
   ctx.font = 'bold 13px system-ui, sans-serif';
-  ctx.fillText(diff.label, W/2, H/2 + 46);
+  ctx.fillText(window.i18n.t(difficulty), W/2, H/2 + 46);
 }
 
 // --- Idle screen ---
@@ -751,17 +801,17 @@ function drawIdle() {
   ctx.fillStyle = 'rgba(232, 213, 183, 0.6)';
   ctx.font = 'bold 20px system-ui, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('Press SPACE to start', W/2, H/2 - 10);
+  ctx.fillText(window.i18n.t('start'), W/2, H/2 - 10);
 
   ctx.fillStyle = 'rgba(232, 213, 183, 0.3)';
   ctx.font = '14px system-ui, sans-serif';
-  ctx.fillText('Help Clawd the crab dodge the errors and bugs!', W/2, H/2 + 20);
+  ctx.fillText(window.i18n.t('start.hint'), W/2, H/2 + 20);
 
   // Difficulty indicator
   const colors = { easy: '#50c878', normal: '#D77757', hard: '#e05252' };
   ctx.fillStyle = colors[difficulty];
   ctx.font = 'bold 12px system-ui, sans-serif';
-  ctx.fillText(diff.label, W/2, H/2 + 44);
+  ctx.fillText(window.i18n.t(difficulty), W/2, H/2 + 44);
 }
 
 // --- Main Loop ---
@@ -1018,6 +1068,9 @@ hiScore = parseInt(localStorage.getItem('clawd-hi-normal') || '0');
 updateScoreDisplay();
 gameLoop();
 </script>
+<div id="leaderboard-area"></div>
+
 <script src="auth.js"></script>
+<script src="leaderboard.js"></script>
 </body>
 </html>
