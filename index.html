@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clawd Arcade</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a1a2e;
+    min-height: 100vh;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #e8d5b7;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    text-align: center;
+    padding: 60px 20px 40px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  .logo h1 {
+    font-size: 48px;
+    letter-spacing: 6px;
+    text-shadow: 0 0 30px rgba(232, 213, 183, 0.2);
+  }
+
+  .logo canvas {
+    image-rendering: pixelated;
+    width: 64px;
+    height: 48px;
+  }
+
+  header p {
+    color: #7a6f5d;
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+
+  .game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    max-width: 960px;
+    width: 100%;
+    padding: 20px 24px 60px;
+  }
+
+  .game-card {
+    background: rgba(232, 213, 183, 0.04);
+    border: 1px solid rgba(232, 213, 183, 0.1);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+
+  .game-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(215, 119, 87, 0.4);
+    box-shadow: 0 8px 32px rgba(215, 119, 87, 0.1);
+  }
+
+  .game-card:active {
+    transform: translateY(-2px);
+  }
+
+  .card-preview {
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-preview canvas {
+    image-rendering: pixelated;
+  }
+
+  .card-body {
+    padding: 20px;
+    border-top: 1px solid rgba(232, 213, 183, 0.06);
+  }
+
+  .card-body h2 {
+    font-size: 20px;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+
+  .card-body p {
+    color: #7a6f5d;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-top: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  .tag-playable {
+    background: rgba(215, 119, 87, 0.15);
+    color: #D77757;
+    border: 1px solid rgba(215, 119, 87, 0.3);
+  }
+
+  .tag-soon {
+    background: rgba(122, 111, 93, 0.15);
+    color: #7a6f5d;
+    border: 1px solid rgba(122, 111, 93, 0.3);
+  }
+
+  .game-card.coming-soon {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .game-card.coming-soon:hover {
+    transform: none;
+    border-color: rgba(232, 213, 183, 0.1);
+    box-shadow: none;
+  }
+
+  footer {
+    padding: 24px;
+    text-align: center;
+    color: #3a3a5a;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <canvas id="logo-clawd" width="16" height="12"></canvas>
+    <h1>CLAWD ARCADE</h1>
+  </div>
+  <p>a collection of tiny games starring Clawd the crab</p>
+</header>
+
+<div class="game-grid">
+
+  <a class="game-card" href="clawd-jump.html">
+    <div class="card-preview" id="preview-jump"></div>
+    <div class="card-body">
+      <h2>CLAWD JUMP</h2>
+      <p>Chrome dino-style endless runner. Jump over obstacles, duck under birds, survive as long as you can.</p>
+      <span class="tag tag-playable">PLAY NOW</span>
+    </div>
+  </a>
+
+  <div class="game-card coming-soon">
+    <div class="card-preview" id="preview-tbd"></div>
+    <div class="card-body">
+      <h2>???</h2>
+      <p>More Clawd adventures coming soon...</p>
+      <span class="tag tag-soon">COMING SOON</span>
+    </div>
+  </div>
+
+</div>
+
+<footer>CLAWD ARCADE &mdash; built with Claude</footer>
+
+<script>
+// Pixel art constants
+const CRAB = '#D77757';
+const BG = '#16213e';
+const P = 4; // pixel size for logo
+
+// Clawd standing sprite (same as in clawd-jump)
+const spriteStand = [
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [1,1,1,1,'E','E',1,1,1,'E','E',1,1,1,1,1],
+  [1,1,1,1,'E','E',1,1,1,'E','E',1,1,1,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+  [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+  [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],
+  [0,0,0,1,1,0,1,1,1,1,0,1,1,0,0,0],
+  [0,0,1,1,0,0,0,1,1,0,0,0,1,1,0,0],
+  [0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0],
+  [0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0],
+];
+
+function drawSprite(ctx, sprite, ox, oy, px) {
+  for (let r = 0; r < sprite.length; r++) {
+    for (let c = 0; c < sprite[r].length; c++) {
+      const v = sprite[r][c];
+      if (v === 0) continue;
+      ctx.fillStyle = v === 'E' ? BG : CRAB;
+      ctx.fillRect(ox + c * px, oy + r * px, px, px);
+    }
+  }
+}
+
+// Draw logo mascot
+(function() {
+  const c = document.getElementById('logo-clawd');
+  c.width = 16; c.height = 12;
+  const ctx = c.getContext('2d');
+  drawSprite(ctx, spriteStand, 0, 0, 1);
+})();
+
+// Draw Clawd Jump preview scene
+(function() {
+  const container = document.getElementById('preview-jump');
+  const c = document.createElement('canvas');
+  c.width = 280; c.height = 160;
+  container.appendChild(c);
+  const ctx = c.getContext('2d');
+
+  // Background
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, 280, 160);
+
+  // Ground line
+  const gy = 130;
+  ctx.strokeStyle = 'rgba(232, 213, 183, 0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, gy);
+  ctx.lineTo(280, gy);
+  ctx.stroke();
+
+  // Ground dots
+  ctx.fillStyle = 'rgba(232, 213, 183, 0.08)';
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * 280;
+    const y = gy + 2 + Math.random() * 20;
+    ctx.fillRect(x, y, 1 + Math.random() * 2, 1);
+  }
+
+  // Stars
+  ctx.fillStyle = 'rgba(232, 213, 183, 0.2)';
+  for (let i = 0; i < 15; i++) {
+    const x = Math.random() * 280;
+    const y = Math.random() * 80;
+    ctx.fillRect(x, y, 1.5, 1.5);
+  }
+
+  // Clawd jumping
+  const px = 3;
+  drawSprite(ctx, spriteStand, 60, gy - spriteStand.length * px - 20, px);
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  ctx.beginPath();
+  ctx.ellipse(60 + (spriteStand[0].length * px) / 2, gy, 14, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Cactus obstacle
+  ctx.fillStyle = 'rgba(215, 119, 87, 0.35)';
+  ctx.fillRect(200, gy - 30, 10, 30);
+  ctx.fillRect(196, gy - 22, 6, 12);
+  ctx.fillRect(214, gy - 18, 6, 10);
+})();
+
+// Draw coming soon preview
+(function() {
+  const container = document.getElementById('preview-tbd');
+  const c = document.createElement('canvas');
+  c.width = 280; c.height = 160;
+  container.appendChild(c);
+  const ctx = c.getContext('2d');
+
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, 280, 160);
+
+  // Question mark made of dots
+  ctx.fillStyle = 'rgba(232, 213, 183, 0.08)';
+  const dots = [
+    [3,1],[4,1],[5,1],
+    [2,2],[6,2],
+    [6,3],
+    [5,4],[4,4],
+    [4,5],
+    [4,7]
+  ];
+  const s = 8, offx = 100, offy = 30;
+  dots.forEach(([x, y]) => {
+    ctx.fillRect(offx + x * s, offy + y * s, s - 1, s - 1);
+  });
+})();
+</script>
+</body>
+</html>
